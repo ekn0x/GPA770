@@ -1,4 +1,26 @@
-		ORG		RAMSTART
+;*****************************************************************
+;* This stationery serves as the framework for a                 *
+;* user application (single file, absolute assembly application) *
+;* For a more comprehensive program that                         *
+;* demonstrates the more advanced functionality of this          *
+;* processor, please see the demonstration applications          *
+;* located in the examples subdirectory of the                   *
+;* Freescale CodeWarrior for the HC12 Program directory          *
+;*****************************************************************
+
+; export symbols
+            XDEF Entry            ; export 'Entry' symbol
+            ABSENTRY Entry        ; for absolute assembly: mark this as application entry point
+
+; include derivative specific macros
+            INCLUDE 'mc9s12c32.inc'
+
+ROMStart    EQU  $4000  ; absolute address to place my code/constant data
+
+; variable/data section
+
+            ORG RAMStart
+ ; Insert here your data definition.
 VCst:	DS.W	1
 TTotal:	DS.W	1
 TA:		DS.W	1
@@ -6,11 +28,28 @@ TC:		DS.W	1
 DeltaV:	DS.W	1			; 
 VMD:	DS.W	30			; Vitesse moteur droit
 VMG:	DS.W	30			; Vitesse moteur gauche
-COMPT:  DS.B    1
+
+COMPT	DS.B	1			; Compteur 
 
 Avance:	EQU		3200		; Vitesse maximale d'avancement
 Arret:	EQU		3000		; Valeurs d'arrêt
 Recule:	EQU		2800		; Vitesse maximale de recule
+
+
+; code section
+            ORG   ROMStart
+Entry:
+        	CLI                   ; enable interrupts
+            
+			LDD		TTotal
+			LDY		VCst
+			JSR		Calcul
+			
+			LDY		#VMD
+			LDX		#VMG
+			JSR		Profil
+			
+			BRA		Entry
 
 ;	Functions
 Calcul:		; Calculer DeltaV, TA, TC
@@ -33,14 +72,15 @@ Calcul:		; Calculer DeltaV, TA, TC
 		LDX		#10			; 
 		IDIV				; Diviser Registre D par registre X
 		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
-
-		rts					; Retour de la fonction.
+		
+finCalcul:
+		rts
 		
 Profil:		; Écrire les valeurs du profil de vitesse dans les tableaux
 		PSHY				; Move to stack VMD
 		; X Register: VMG 3000, 2800
 		
-		MOVB	#10,CMPT 	; Assignation de 10 dans le compteur
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 		LDD		#Arret		; Mettre dans le registre D, la valeur d'arret
 		CLRB				; B = 0
 		
@@ -56,20 +96,26 @@ ACC:	; Remplir profil acceleration
 		BNE 	ACC			; COMPT != 0
 	
 	; Remplir profil constante
-	
+		MOVB	#10, COMPT
+		LDD		#Arret
+		LDD		VCst
+		CLRB
+CST:
+		STD		2,X+		; Stock la valeur du registre D a l'addr pointer par le registre X, puis incrementer de 16bit
+		DEC 	COMPT		; decrement compteur
+		BNE 	CST
+		
 	
 	; Remplir porfil decceleration
-	
+		MOVB	#10, COMPT
+		LDD		#Arret
+		CLRB	
+DEC:
 	
 		rts
 
-; 	Program
-		ORG		ROMSTART		
-
-		LDD		TTotal
-		LDY		VCst
-		JSR		Calcul
-		
-		LDY		#VMD
-		LDX		#VMG
-		JSR		Profil
+;**************************************************************
+;*                 Interrupt Vectors                          *
+;**************************************************************
+            ORG   $FFFE
+            DC.W  Entry           ; Reset Vector
