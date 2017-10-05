@@ -17,6 +17,12 @@
 
 ROMStart    EQU  $4000  ; absolute address to place my code/constant data
 
+RAMPUP:		MACRO
+			
+			
+			
+			ENDM
+
 ; variable/data section
 
             ORG RAMStart
@@ -31,6 +37,9 @@ VMG:	DS.W	30			; Vitesse moteur gauche
 
 COMPT	DS.B	1			; Compteur 
 
+
+VDiff	DS.W	1			; Variable custom 
+
 Avance:	EQU		3200		; Vitesse maximale d'avancement
 Arret:	EQU		3000		; Valeurs d'arrêt
 Recule:	EQU		2800		; Vitesse maximale de recule
@@ -39,9 +48,9 @@ Recule:	EQU		2800		; Vitesse maximale de recule
 ; code section
             ORG   ROMStart
 Entry:
-        	CLI                   ; enable interrupts
+            CLI                   ; enable interrupts
             
-			LDD		TTotal
+          	LDD		TTotal
 			LDY		VCst
 			JSR		Calcul
 			
@@ -69,49 +78,21 @@ Calcul:		; Calculer DeltaV, TA, TC
 	; Calcul de DeltaV
 		PULD				; Ramener la vitesse constante
 		SUBD	#Arret		; Soustraire la valeur decimale 3000 au registre D
-		LDX		#10			; 
+		BPL		Fold		; Test sur le flag Negatif est a 0
+		
+		LDD		#Arret		; Faire la soustraction inverse
+		SUBD	VCst		
+				
+Fold:
+		LDX		#10			; Definir le nombre de step
 		IDIV				; Diviser Registre D par registre X
 		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
 		
-finCalcul:
+	; Fin de calcul
 		rts
 		
 Profil:		; Écrire les valeurs du profil de vitesse dans les tableaux
-		PSHY				; Move to stack VMD
-		; X Register: VMG 3000, 2800
 		
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
-		LDD		#Arret		; Mettre dans le registre D, la valeur d'arret
-		CLRB				; B = 0
-		
-		; Dans cette fonction, le registre D sert de stackeur pour evaluer la vitesse
-		; Le registre X sers de pointeur sur la vitesse
-		; Le registre B sert de comparateur pour savoir quand la loop est terminer		
-		
-ACC:	; Remplir profil acceleration
-	; Operation
-		SUBD	DeltaV		; Add DeltaV to D register
-		STD		2,X+		; Stock la valeur du registre D a l'addr pointer par le registre X, puis incrementer de 16bit
-		DEC 	COMPT		; decrement compteur
-		BNE 	ACC			; COMPT != 0
-	
-	; Remplir profil constante
-		MOVB	#10, COMPT
-		LDD		#Arret
-		LDD		VCst
-		CLRB
-CST:
-		STD		2,X+		; Stock la valeur du registre D a l'addr pointer par le registre X, puis incrementer de 16bit
-		DEC 	COMPT		; decrement compteur
-		BNE 	CST
-		
-	
-	; Remplir porfil decceleration
-		MOVB	#10, COMPT
-		LDD		#Arret
-		CLRB	
-DEC:
-	
 		rts
 
 ;**************************************************************
