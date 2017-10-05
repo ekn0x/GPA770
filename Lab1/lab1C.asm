@@ -17,12 +17,6 @@
 
 ROMStart    EQU  $4000  ; absolute address to place my code/constant data
 
-RAMPUP:		MACRO
-			
-			
-			
-			ENDM
-
 ; variable/data section
 
             ORG RAMStart
@@ -41,7 +35,7 @@ COMPT	DS.B	1			; Compteur
 VDiff	DS.W	1			; Variable custom 
 
 Avance:	EQU		3200		; Vitesse maximale d'avancement
-Arret:	EQU		3000		; Valeurs d'arrêt
+Neutre:	EQU		3000		; Valeurs d'arrêt
 Recule:	EQU		2800		; Vitesse maximale de recule
 
 
@@ -55,7 +49,7 @@ Entry:
 			JSR		Calcul
 			
 			LDY		#VMD
-			LDX		#VMG
+			LDX		#DeltaV
 			JSR		Profil
 			
 			BRA		Entry
@@ -77,21 +71,59 @@ Calcul:		; Calculer DeltaV, TA, TC
 
 	; Calcul de DeltaV
 		PULD				; Ramener la vitesse constante
-		SUBD	#Arret		; Soustraire la valeur decimale 3000 au registre D
-		BPL		Fold		; Test sur le flag Negatif est a 0
-		
-		LDD		#Arret		; Faire la soustraction inverse
-		SUBD	VCst		
-				
-Fold:
-		LDX		#10			; Definir le nombre de step
+		SUBD	#Neutre		; Soustraire la valeur decimale 3000 au registre D
+		LDX		#10			; 
 		IDIV				; Diviser Registre D par registre X
 		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
 		
 	; Fin de calcul
 		rts
 		
-Profil:		; Écrire les valeurs du profil de vitesse dans les tableaux
+		
+;	Functions
+Profil:		; Écrire les valeurs du profil de vitesse dans les tableaux		
+		;	ramp down
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+		LDD		#Neutre		; Charger la valeur neutre dans le registre D
+		
+RampUD:
+		ADDD	X
+		STD		2,Y+		; Enregistrer le registre D et decaler l'addr du registre Y
+		DEC 	COMPT		; decrement compteur
+		BNE 	RampUD
+
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+ConstD:
+		STD		2,Y+
+		DEC 	COMPT		; decrement compteur
+		BNE 	ConstD
+		
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+RampDD:
+		SUBD	X
+		STD		2,Y+
+		DEC 	COMPT		; decrement compteur
+		BNE 	RampDD
+
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+RampDG:
+		SUBD	X
+		STD		2,Y+
+		DEC 	COMPT		; decrement compteur
+		BNE 	RampDG
+
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+ConstG:
+		STD		2,Y+
+		DEC 	COMPT		; decrement compteur
+		BNE 	ConstG
+
+		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+RampUG:
+		ADDD	X
+		STD		2,Y+
+		DEC 	COMPT		; decrement compteur
+		BNE 	RampUG
 		
 		rts
 
