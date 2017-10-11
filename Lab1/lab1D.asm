@@ -41,6 +41,10 @@ Recule:	EQU		2800		; Vitesse maximale de recule
 
 ; code section
             ORG   ROMStart
+Str1: DC.B 'Vitesse '
+Str2: DC.B ' : '
+Str3: DC.B 1013         ;CR LF
+
 Entry:
             CLI                   ; enable interrupts
             
