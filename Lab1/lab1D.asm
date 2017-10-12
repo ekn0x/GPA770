@@ -43,7 +43,7 @@ Recule:	EQU		2800		; Vitesse maximale de recule
             ORG   ROMStart
 Str1: DC.B 'Vitesse '
 Str2: DC.B ' : '
-Str3: DC.B 1013         ;CR LF
+Str3: DC.B $AD         ;CR LF
 
 Entry:
             CLI                   ; enable interrupts
