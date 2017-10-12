@@ -14,6 +14,9 @@
 
 ; include derivative specific macros
             INCLUDE 'mc9s12c32.inc'
+            INCLUDE 'D_BUG12M.mac'
+
+            list
 
 ROMStart    EQU  $4000  ; absolute address to place my code/constant data
 
@@ -25,37 +28,36 @@ VCst:	DS.W	1
 TTotal:	DS.W	1
 TA:		DS.W	1
 TC:		DS.W	1
-DeltaV:	DS.W	1			; 
+DeltaV:	DS.W	1			;
 VMD:	DS.W	30			; Vitesse moteur droit
 VMG:	DS.W	30			; Vitesse moteur gauche
 
-COMPT	DS.B	1			; Compteur 
-
-
-VDiff	DS.W	1			; Variable custom 
+COMPT	DS.B	1			; Compteur
+INDEX	DS.B	1			; index du tableau
 
 Avance:	EQU		3200		; Vitesse maximale d'avancement
-Neutre:	EQU		3000		; Valeurs d'arrêt
+Neutre:	EQU		3000		; Valeurs d'arr�t
 Recule:	EQU		2800		; Vitesse maximale de recule
 
 
 ; code section
             ORG   ROMStart
-Str1: DC.B 'Vitesse '
-Str2: DC.B ' : '
-Str3: DC.B $AD         ;CR LF
-
 Entry:
-            CLI                   ; enable interrupts
-            
+            CLI                   	; enable interrupts
+
           	LDD		TTotal
 			LDY		VCst
 			JSR		Calcul
-			
+
 			LDY		#VMD
 			LDX		#DeltaV
 			JSR		Profil
-			
+
+			; affichage du profil de vitesse
+			LDX			VMD
+        	LDY			VMG
+            JSR			PrintProfil	; essai de la fonction
+
 			BRA		Entry
 
 ;	Functions
@@ -66,7 +68,7 @@ Calcul:		; Calculer DeltaV, TA, TC
 		LDX		#05			; Mettre 5 decimal dans le registre X
 		IDIV				; Diviser registre D par registre X
 		STX		TA			; Enregistre la valeur de TA dans la RAM
-	
+
 	; Calcul de TC
 		LDD		TA			; Mettre dans le registre D, la valeur de TA
 		LDY 	#04			; Mettre 4 decimal dans le registre Y
@@ -76,20 +78,20 @@ Calcul:		; Calculer DeltaV, TA, TC
 	; Calcul de DeltaV
 		PULD				; Ramener la vitesse constante
 		SUBD	#Neutre		; Soustraire la valeur decimale 3000 au registre D
-		LDX		#10			; 
+		LDX		#10			;
 		IDIV				; Diviser Registre D par registre X
 		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
-		
+
 	; Fin de calcul
 		rts
-		
-		
+
+
 ;	Functions
-Profil:		; Écrire les valeurs du profil de vitesse dans les tableaux		
+Profil:		; �crire les valeurs du profil de vitesse dans les tableaux
 		;	ramp down
 		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 		LDD		#Neutre		; Charger la valeur neutre dans le registre D
-		
+
 RampUD:
 		ADDD	X
 		STD		2,Y+		; Enregistrer le registre D et decaler l'addr du registre Y
@@ -101,7 +103,7 @@ ConstD:
 		STD		2,Y+
 		DEC 	COMPT		; decrement compteur
 		BNE 	ConstD
-		
+
 		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 RampDD:
 		SUBD	X
@@ -128,8 +130,43 @@ RampUG:
 		STD		2,Y+
 		DEC 	COMPT		; decrement compteur
 		BNE 	RampUG
-		
+
 		rts
+
+PrintProfil:	; fonction
+
+		MOVB	#30, COMPT
+		MOVB	#00, INDEX
+
+nextPts:
+		;printf	str1		; "Vitesse "
+		;out2hex	INDEX	; Afficher l'index du tableau
+		;printf	str2		; " : "
+		;out4hex	1,X+	; Afficher la vitesse droite pour l'index actuel
+		;printf	str2		; " : "
+		;out4hex	1,Y+	; Afficher la vitesse gauche pour l'index actuel
+		;printf	CRLF		; CRLF
+
+		INC		INDEX		; Incrementer l'index du tableau
+		DEC		COMPT		; Decrementer le compteur
+		BHS		nextPts		; tant que COMPT n'est pas egal a la valeur dans
+
+		rts
+
+;**************************************************************
+;*                 Messages textes                            *
+;**************************************************************
+str1:	dc.b	'Vitesse '
+str2:	dc.b	' : '
+CRLF:	dc.b	$0A,$0D,$00
+
+;*************************************************************************
+;* 																		 *
+;* Inclusion du fichier D_BUG12M.ASM 									 *
+;* 																		 *
+;*************************************************************************
+			INCLUDE 	'D_BUG12M.ASM' 		; Fichier pour la simulation des
+											; fonctions D_BUG12
 
 ;**************************************************************
 ;*                 Interrupt Vectors                          *
