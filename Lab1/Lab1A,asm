@@ -24,16 +24,16 @@
 ;* *
 ;*************************************************************************
 ; Point d’entrée du programme
-    ABSENTRY Entry ; point d’entrée pour adressage absolu
+     ABSENTRY Entry ; point d’entrée pour adressage absolu
      nolist ; Désactiver l’insertion de texte dans le
  ; fichier .LST
-    INCLUDE 'mc9s12c32.inc' ; Inclusion du fichier d’identification des
+     INCLUDE 'mc9s12c32.inc' ; Inclusion du fichier d’identification des
  ; registres
-    INCLUDE 'D_BUG12M.MAC' ; Définition de macros pour des appels simples
+     INCLUDE 'D_BUG12M.MAC' ; Définition de macros pour des appels simples
  ; en assembleur ; getchar, putchar, out2hex
  ; out4hex, printf
 ; Réactiver l’insertion de texte dans le
-    list ; fichier .LST
+     list ; fichier .LST
 
 ROMStart EQU $4000 ; Adresse absolue pour le début du programme
  ; et des constantes
