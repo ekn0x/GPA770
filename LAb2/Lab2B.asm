@@ -24,62 +24,79 @@ Simulateur		EQU			1				; Si le code est compiler pour le simulateur
 CAPTEUR1        EQU         $0091
 CAPTEUR2        EQU         $0093
 CAPTEUR3        EQU         $0095
+REEL            EQU         $FF8E
+SIM             EQU         $FFD6
+
+
+affLCD:     MACRO
+			MOVB    #\3, PORTB
+			MOVB    #\1, PORTA
+			BCLR     PORTB, $04
+			LDY     #\2
+			JSR     DELAI
+			BSET    PORTB, $04
+            ENDM
+
 
 ; variable/data section
 
             	ORG 		RAMStart
             	
-Urgence:                DC.B    1
+Urgence:        DC.B        1
 
 ; code section
             	ORG   		ROMStart
 Entry:
-            ;************************************************************************
-            ;*                          Prep Interruption                           *
-            ;************************************************************************
-            
-            
-            CLI
-            LDS #$1000
-            ;MOVB #$20,SCICR2
+        ;************************************************************************
+        ;*                          Prep Interruption                           *
+        ;************************************************************************
+        CLI
+        LDS     #$1000
 
-
-            ;*************************************************************************
-            ;
-            ;Init portb en sortie
-
-             LDAB #$ff ; 1 = sortie
-             STAB DDRB
-             
-            ;*************************************************************************
-            ;
-            ; Init du SCI (transmetteur et récepteur de caractères sériel)
-             CLR SCIBDH
-             LDAB #$34 ; si bus clk est à 8MHz
-             STAB SCIBDL ; 9600 BAUDS
-             CLR SCICR1 ; M BIT = 0 POUR 8 BITS
-             LDAB #$2C
-             STAB SCICR2 ; TE , RE
-			 jsr			initPort
+        ;*************************************************************************
+        ;
+        ;Init portb en sortie
+        LDAB    #$FF ; 1 = sortie
+        STAB    DDRB
+         
+        ;*************************************************************************
+        ;
+        ; Init du SCI (transmetteur et récepteur de caractères sériel)
+        CLR     SCIBDH
+        LDAB    #$34 ; si bus clk est à 8MHz
+        STAB    SCIBDL ; 9600 BAUDS
+        CLR     SCICR1 ; M BIT = 0 POUR 8 BITS
+        LDAB    #$2C
+        STAB    SCICR2 ; TE , RE
+        jsr		initPushButton
+        jsr     initPortLCD       
 			 
-				
-				
 mainLoop:
+        MOVB    #$00, Urgence
 
     IF Simulateur = 0
-                BRCLR		PTP,$01,Action
+        BRCLR   PTP,$01,Action
     ELSE
-    			BRSET		PTP,$01,Action
+        BRSET   PTP,$01,Action
     ENDIF
-	            BRA   		mainLoop        ; restart.
+        BRA     mainLoop        ; restart.
+        
+        LDY #400
+        JSR DELAI
+        SUBA Urgence
+        LBHI affCAPT 
 	            
-DONE:           WAI
-                BRA         DONE
+DONE:   BRA     DONE
+        
+Action:
+		printf	#msg
+		BRA     DONE
+
 
 ; Functions
-; Connection diagram
+; Diagramme de connection push button
 ;	5V ---- PPSP ---- 470Ohm ---- PERP ---- PORTP --+-- PushButton ---- Gnd
-initPort:	; initialisation du registre PTP, pour le polling du push-button
+initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 		BCLR	DDRP,$00		; mode 0 - mode read
 		BSET	PERP,$01		; mode 1 - either pullup or pulldown
 		MOVB	#$00,PPSP		; mode 0 - mode pull up
@@ -88,33 +105,89 @@ initPort:	; initialisation du registre PTP, pour le polling du push-button
 		NOP
 		rts
 
-Action:
-		printf	#msg
-		BRA     DONE
+; Diagramme de connection ecran LCD
+; PORTA : Data
+; PORTB : $04 - Enable
+;       : $02 - Read/Write
+;       : $01 - Select Register
+; 1. Reset procedure ($30, $30, $30)
+; 2. 1/2 lignes (Options: $30)
+; 3. display off ($08)
+; 4. Clr Display ($01)
+; 5. type curseur (option: $06)
+; 6. Display on ($0E)
+initPortLCD:
+		BSET    DDRB, #$07      ; Set la direction du portB
+		BSET    DDRA, #$FF      ; Set la direction du portA
+		
+		; 
+		affLCD  $30, $01, $04   ; reset1
+		affLCD  $30, $01, $04   ; reset2			  
+		affLCD  $30, $01, $04   ; reset3
+		affLCD  $30, $01, $04   ; 1/2 ligne
+		affLCD  $08, $01, $04   ; DisplayOff
+		affLCD  $01, $01, $04   ; Clear Display
+		affLCD  $06, $01, $04   ; Type Curseur
+		affLCD  $0E, $01, $04   ; DisplayOn
+		
+        rts
+
 
 msg:	DC.B    'Vous avez poussé le boutton', $0D, $00
 
 
-KeyInter:
-        STAA SCISR1
-        STAA SCIDRL
-        MOVB #$00, Urgence
-        MOVB #$0C, SCICR2   
-        printf	#msg
+RS_REEL:
+        LDAA    SCISR1	        ; lecture du SCI Status Register 1
+        LDAA    SCIDRL          ; lecture du SCI Status Register 1
+        MOVB    #$01, Urgence
+        MOVB    #$0C, SCICR2 
         RTI
         
+RS_SIM:
+        LDAA    SCISR1	        ; lecture du SCI Status Register 1
+        LDAA    SCIDRL          ; lecture du SCI Status Register 1
+        MOVB    #$01, Urgence
+        MOVB    #$0C, SCICR2 
+        RTI
 
+affCAPT:
+        LDAB    CAPTEUR1 
+        JSR     LCD2hex
+
+        LDAB    #$3A 
+        JSR     lsuitehex2      ; Ici on trick pour afficher directement du text
+
+        LDAB    CAPTEUR2
+        JSR     LCD2hex
+
+        LDAB    #$3A 
+        JSR     lsuitehex2      ; Ici on trick pour afficher directement du text
+
+        LDAB    CAPTEUR3  
+        JSR     LCD2hex
+        LBRA     DONE
+        
+DELAI: 
+Boucle2:LDX 	#50000 	; 50,000 fois en boucle interne=25 msec
+Boucle1:DEX 		    ; décrémente X
+		BNE 	Boucle1	; boucle interne
+		DEY 		    ; décrémente Y
+		BNE 	Boucle2	; boucle externe
+		RTS 		    ; retour de la sous-routine
 
 ;**************************************************************
 ;*                          DEBUG                             *
 ;**************************************************************
 
                 INCLUDE     'D_BUG12M.ASM'
+                INCLUDE     'LCDhex.asm'
 		
 ;**************************************************************
 ;*                 Interrupt Vectors                          *
 ;**************************************************************
 	            ORG   		$FFFE
 	            DC.W  		Entry           ; Reset Vector
-	            ORG         $FFD6
-	            DC.W        KeyInter
+	            ORG         SIM
+	            DC.W        RS_SIM
+	            ORG         REEL
+	            DC.W        RS_REEL
