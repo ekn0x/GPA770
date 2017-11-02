@@ -99,8 +99,10 @@ Action:
 ;	5V ---- PPSP ---- 470Ohm ---- PERP ---- PORTP --+-- PushButton ---- Gnd
 initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 		BCLR	DDRP,$00		; mode 0 - mode read
-		BSET	PERP,$01		; mode 1 - either pullup or pulldown
+		BSET	PERP,$03		; mode 1 - either pullup or pulldown
 		MOVB	#$00,PPSP		; mode 0 - mode pull up
+		MOVB    #$02,PIFP       ; set the flag for the interrup on PP1
+		MOVB    #$02,PIEP       ; enable the interrupt on PP1
 		NOP
 		NOP
 		NOP
@@ -108,7 +110,7 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 
 ; Diagramme de connection ecran LCD
 ; PORTA : Data
-; PORTB : $04 - Enable
+; PORTB : $04 - Enable                                              
 ;       : $02 - Read/Write
 ;       : $01 - Select Register
 ; 1. Reset procedure ($30, $30, $30)
@@ -142,6 +144,7 @@ RS_REEL:
         LDAA    SCIDRL          ; lecture du SCI Status Register 1
         MOVB    #$01, Urgence
         MOVB    #$0C, SCICR2 
+        MOVB    #$02,PIFP       ; Aquitter l'interruption
         RTI
         
 RS_SIM:
