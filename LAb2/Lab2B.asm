@@ -53,13 +53,13 @@ Entry:
         CLI
         LDS     #$1000
 
-        ;*************************************************************************
+        ;************************************************************************
         ;
         ;Init portb en sortie
         LDAB    #$FF ; 1 = sortie
         STAB    DDRB
          
-        ;*************************************************************************
+        ;************************************************************************
         ;
         ; Init du SCI (transmetteur et récepteur de caractères sériel)
         CLR     SCIBDH
@@ -81,16 +81,17 @@ mainLoop:
     ENDIF
         BRA     mainLoop        ; restart.
         
-        LDY #400
+SUITE:  LDY #400
         JSR DELAI
+        LDAA #$00
         SUBA Urgence
-        LBHI affCAPT 
+        LBMI affCAPT 
 	            
 DONE:   BRA     DONE
         
 Action:
 		printf	#msg
-		BRA     DONE
+		BRA     SUITE
 
 
 ; Functions
