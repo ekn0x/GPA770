@@ -63,7 +63,8 @@ initProcedure:
 ;* Inclusion du fichier D_BUG12M.ASM
 ;**************************************************************
 			INCLUDE 	'D_BUG12M.ASM' 		; Fichier pour la simulation des
-                                            ; fonctions D_BUG12
+                                            			; fonctions D_BUG12
+			INCLUDE     'LCDhex.asm'		; Fonction du LCD
  
 
 ;**************************************************************
