@@ -32,21 +32,23 @@ Recule: 	EQU  2800		; Vitesse maximale de recule
 ;**************************************************************    
             ORG RAMStart
 
-VCst:	DS.W	1
-TTotal:	DS.W	1
-TA:		DS.W	1
-TC:		DS.W	1
-DeltaV:	DS.W	1			; 
-VMD:	DS.W	30			; Vitesse moteur droit
-VMG:	DS.W	30			; Vitesse moteur gauche
+VCst:	    DS.W	1
+TTotal:	    DS.W	1
+TA:		    DS.W	1
+TC:		    DS.W	1
+DeltaV:	    DS.W	1			; 
+VMD:	    DS.W	30			; Vitesse moteur droit
+VMG:    	DS.W	30			; Vitesse moteur gauche
 
-COMPT	DS.B	1			; Compteur 
+COMPT:   	DS.B	1			; Compteur 
 
 
-VDiff	DS.W	1			; Variable custom 
+VDiff:   	DS.W	1			; Variable custom 
 
-ComptMG DS.B    1
-ComptMD DS.B    1
+ComptMG:    DS.B    1
+ComptMD:    DS.B    1
+ComptSec:   DS.B    1
+TmpSec:     DS.B    1
 
 
 
@@ -130,74 +132,86 @@ Calcul:		; Calculer DeltaV, TA, TC
     		EMUL				; Multiplier registre D par registre Y
     		STD		TC			; Calcul de TC
 
-	; Calcul de DeltaV
-		PULD				; Ramener la vitesse constante
-		SUBD	#Neutre		; Soustraire la valeur decimale 3000 au registre D
-		LDX		#10			;
-		IDIV				; Diviser Registre D par registre X
-		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
+    	    ; Calcul de DeltaV
+    		PULD				; Ramener la vitesse constante
+    		SUBD	#Neutre		; Soustraire la valeur decimale 3000 au registre D
+    		LDX		#10			;
+    		IDIV				; Diviser Registre D par registre X
+    		STX		DeltaV		; Enregistre la valeur de DeltaV dans la RAM
 
-	; Fin de calcul
-		rts
+    	    ; Fin de calcul
+    		rts
 
 Profil:		; ?crire les valeurs du profil de vitesse dans les tableaux
-		;	ramp down
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
-		LDD		#Neutre		; Charger la valeur neutre dans le registre D
+		    ;	ramp down
+    		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+    		LDD		#Neutre		; Charger la valeur neutre dans le registre D
 
 RampUD:
-		ADDD	X
-		STD		2,Y+		; Enregistrer le registre D et decaler l'addr du registre Y
-		DEC 	COMPT		; decrement compteur
-		BNE 	RampUD
+    		ADDD	X
+    		STD		2,Y+		; Enregistrer le registre D et decaler l'addr du registre Y
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	RampUD
 
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+		    MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 ConstD:
-		STD		2,Y+
-		DEC 	COMPT		; decrement compteur
-		BNE 	ConstD
+    		STD		2,Y+
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	ConstD
 
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+    		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 RampDD:
-		SUBD	X
-		STD		2,Y+
-		DEC 	COMPT		; decrement compteur
-		BNE 	RampDD
+    		SUBD	X
+    		STD		2,Y+
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	RampDD
 
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+    		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 RampDG:
-		SUBD	X
-		STD		2,Y+
-		DEC 	COMPT		; decrement compteur
-		BNE 	RampDG
+    		SUBD	X
+    		STD		2,Y+
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	RampDG
 
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+    		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 ConstG:
-		STD		2,Y+
-		DEC 	COMPT		; decrement compteur
-		BNE 	ConstG
+    		STD		2,Y+
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	ConstG
 
-		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
+    		MOVB	#10,COMPT 	; Assignation de 10 dans le compteur
 RampUG:
-		ADDD	X
-		STD		2,Y+
-		DEC 	COMPT		; decrement compteur
-		BNE 	RampUG
+    		ADDD	X
+    		STD		2,Y+
+    		DEC 	COMPT		; decrement compteur
+    		BNE 	RampUG
 
-		rts
-		
+    		rts
+    		
 		
 ComptMot:
-        LDAA    ComptMG
-        LDAB    ComptMD
+            LDAA    ComptMG
+            LDAB    ComptMD
+            
+            ADDD    #$11		; !!!ABSOLUTE SPEED!!
+            
+            STAA    ComptMG
+            STAB    ComptMD
+            RTI
+       
+IncSec:
+            LDAA    TmpSec
+            INCA
+                        
         
-        ADDD    #$11		; !!!ABSOLUTE SPEED!!
-        
-        STAA    ComptMG
-        STAB    ComptMD
-        RTI
-     
-ComptMotD:
+IncVar:     
+            LDAB    ComptSec
+            INCB
+            STAB    ComptSec
+            MOVB    #$00, TmpSec
+            
+
+ENDSEC:     RTI
      
   
          
@@ -218,10 +232,6 @@ ComptMotD:
             ORG   $FFFE
             DC.W  Entry           ; Reset Vector
             ORG   $FFEE
-            DC.W  ComptMotG
-            ORG   $FFEC
-            DC.W  ComptMotD
+            DC.W  ComptMot
             ORG   $FFEA
-            DC.W  ComptMotG
-            ORG   $FFE8
-            DC.W  ComptMotD
+            DC.W  ComptMot
