@@ -20,12 +20,13 @@
             	INCLUDE     'D_BUG12M.mac'
 
 ROMStart    	EQU  		$4000  			; absolute address to place my code/constant data
-Simulateur		EQU			1				; Si le code est compiler pour le simulateur
+Simulateur		EQU			0				; Si le code est compiler pour le simulateur
 CAPTEUR1        EQU         $0091
 CAPTEUR2        EQU         $0093
 CAPTEUR3        EQU         $0095
 REEL            EQU         $FF8E
 SIM             EQU         $FFD6
+
 
 
 affLCD:     MACRO
@@ -76,12 +77,14 @@ mainLoop:
 
     IF Simulateur = 0
         BRCLR   PTP,$01,Action
+       ; LDY #1000
     ELSE
         BRSET   PTP,$01,Action
+      ;  LDY #1000
     ENDIF
         BRA     mainLoop        ; restart.
         
-SUITE:  LDY #400
+SUITE:   LDY #4000
         JSR DELAI
         LDAA #$00
         SUBA Urgence
@@ -124,14 +127,14 @@ initPortLCD:
 		BSET    DDRA, #$FF      ; Set la direction du portA
 		
 		; 
-		affLCD  $30, $01, $04   ; reset1
-		affLCD  $30, $01, $04   ; reset2			  
-		affLCD  $30, $01, $04   ; reset3
-		affLCD  $30, $01, $04   ; 1/2 ligne
-		affLCD  $08, $01, $04   ; DisplayOff
-		affLCD  $01, $01, $04   ; Clear Display
-		affLCD  $06, $01, $04   ; Type Curseur
-		affLCD  $0E, $01, $04   ; DisplayOn
+		affLCD  $30, 15, $04   ; reset1
+		affLCD  $30, $04, $04   ; reset2			  
+		affLCD  $30, $04, $04   ; reset3
+		affLCD  $30, $04, $04   ; 1/2 ligne
+		affLCD  $08, $04, $04   ; DisplayOff
+		affLCD  $01, $04, $04   ; Clear Display
+		affLCD  $06, $04, $04   ; Type Curseur
+		affLCD  $0E, $04, $04   ; DisplayOn
 		
         rts
 
@@ -172,7 +175,7 @@ affCAPT:
         LBRA     DONE
         
 DELAI: 
-Boucle2:LDX 	#50000 	; 50,000 fois en boucle interne=25 msec
+Boucle2:LDX 	#5000 	; 50,000 fois en boucle interne=25 msec
 Boucle1:DEX 		    ; décrémente X
 		BNE 	Boucle1	; boucle interne
 		DEY 		    ; décrémente Y
