@@ -19,7 +19,7 @@
 affLCD:     MACRO
 			MOVB    #\3, PORTB
 			MOVB    #\1, PORTA
-			BCLR     PORTB, $04
+			BCLR    PORTB, $04
 			LDY     #\2
 			JSR     DELAI
 			BSET    PORTB, $04
@@ -28,7 +28,7 @@ affLCD:     MACRO
 ROMStart    EQU  $4000      ; Absolute address to place my code/constant data
 Compteur    EQU  $0044      ; Adresse du compteur 16 bits du TIM
 ComptReset  EQU  40000      ; Valeur a laquelle le compteur est remis a zero
-Simulateur  EQU	 1
+Simulateur  EQU	 0
 
 Avance: 	EQU	 3200		; Vitesse maximale d'avancement
 Neutre:	    EQU  3000		; Valeurs d'arrêt
@@ -54,9 +54,6 @@ PtrVMG:    	DS.W	1
 
 COMPT:   	DS.B	1		; Compteur 
 
-
-VDiff:   	DS.W	1		; Variable custom 
-
 ComptMG:    DS.B    1
 ComptMD:    DS.B    1
 ComptSec:   DS.B    1
@@ -74,14 +71,16 @@ Entry:
                             ; de ls RAM ($0800-$0FFF)
                             ; Initialisation communication
             ;jsr     initPortLCD
-                     
+            ; Initialisations
+INITIAL:    jsr     initProcedure
+             
             MOVB    $00,ComptMG
             MOVB    $00,ComptMD
             MOVB    $00,ComptSec
             MOVB    $00,TmpSec
             MOVW    #VMD,PtrVMD
 			MOVW    #VMG,PtrVMG
-            jsr     initProcedure
+            
             MOVW    #Neutre,TTotal
             MOVW    #Avance,VCst
             LDD     TTotal
@@ -90,9 +89,8 @@ Entry:
             LDY		#VMD
 			LDX		#DeltaV
 			JSR		Profil
-			JSR     initTimer
 			
-
+			JSR     initTimer
             
 DONE:		BRA	    DONE
 
@@ -238,7 +236,10 @@ RampUG:
     		rts
     		
 		
-ComptMotR:	
+ComptMotR:
+			LDY		PtrVMD
+			CPY		#VMG
+			BEQ		NoIncSec	
             MOVB    #$01,TFLG1	; Routine qui incremente le compte 
             LDAA    ComptMG		; des impulsion envoyer au moteur
             LDAB    ComptMD
@@ -248,22 +249,33 @@ ComptMotR:
             STAA    ComptMG
             STAB    ComptMD
             
-            SUBB    #25
-            BHS     RS_TIM     
             
-RETOURR:    SUBA    #50
-            BLO     NoIncSec
+            LDX		#0025
+            LDAA	#$00
+            LDAB	ComptMD
+            IDIV
+            CMPB	#00
+            LBEQ     RS_TIM  
             
+RETOURR:    LDX		#0050
+            LDAA	#$00
+            LDAB	ComptMD
+            IDIV
+            CMPB	#00
+            LBNE     NoIncSec
             
             LDAA    TmpSec
             INCA
             STAA    TmpSec
+            
+                       
             MOVB    #$00,ComptMG
             MOVB    #$00,ComptMD
             
             JSR     printSec
             
-NoIncSec:   NOP  
+NoIncSec:   NOP
+
             RTI                     
 
 
@@ -279,17 +291,18 @@ ComptMotS:
             
             SUBA    #50
             BLO     NoIncSecs
-            
-      
+
             LDAA    TmpSec
             INCA
-            STAA    TmpSec
+            STAA    TmpSec        
             MOVB    #$00,ComptMG
             MOVB    #$00,ComptMD
             
             JSR     printSec
             
-NoIncSecs:   NOP           
+NoIncSecs:  NOP
+            
+            
             RTI
        
 
@@ -316,11 +329,10 @@ printSec:
             rts
             
 RS_TIM:
-        
             LDY     PtrVMD
             LDX     PtrVMG
             MOVW    2,X+,TC2
-            MOVW    2,y+,TC3
+            MOVW    2,Y+,TC3
             STY     PtrVMD
             STX     PtrVMG
             LBRA    RETOURR
@@ -329,7 +341,8 @@ RS_TIM:
 ;* Messages textes
 ;**************************************************************
 str1:	DC.B	'Temps : ', $00
-str2:	DC.B	' secondes', $00
+str2:	DC.B	' secondes', $0A, $0D, $00 ; $0D est necessaire en mode reel
+str3:	DC.B	$0A, $0D, $00
 
 
 ;**************************************************************
