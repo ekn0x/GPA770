@@ -28,7 +28,7 @@ affLCD:     MACRO
 ROMStart    EQU  $4000      ; Absolute address to place my code/constant data
 Compteur    EQU  $0044      ; Adresse du compteur 16 bits du TIM
 ComptReset  EQU  40000      ; Valeur a laquelle le compteur est remis a zero
-Simulateur  EQU	 0
+Simulateur  EQU	 1
 
 Avance: 	EQU	 3200		; Vitesse maximale d'avancement
 Neutre:	    EQU  3000		; Valeurs d'arrêt
@@ -79,8 +79,8 @@ Entry:
             MOVB    $00,ComptMD
             MOVB    $00,ComptSec
             MOVB    $00,TmpSec
-            MOVW    VMD,PtrVMD
-			MOVW    VMG,PtrVMG
+            MOVW    #VMD,PtrVMD
+			MOVW    #VMG,PtrVMG
             jsr     initProcedure
             MOVW    #Neutre,TTotal
             MOVW    #Avance,VCst
