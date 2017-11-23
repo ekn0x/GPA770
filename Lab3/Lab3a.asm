@@ -17,6 +17,14 @@
 ;**************************************************************    
 ROMStart    EQU  $4000  ; absolute address to place my code/constant data
 
+; Masque d'etats
+ACC		EQU		$01	; Acceleration
+ARR		EQU	    $02	; Arret
+MAV		EQU		$04 ; Marche avant
+MAR		EQU		$06	; Marche Arriere
+BDR		EQU		$08	; Braquage a droite
+BGA		EQU		$10	; Braquage a Gauche
+ETAL	EQU		$20 ; Etallonnage 
 
 ; variable/data section
 
@@ -35,6 +43,9 @@ Entry:
                             ; de ls RAM ($0800-$0FFF)
                             ; Initialisation communication
             jsr     initProcedure
+			
+			jsr		initTimer
+			
             
 			BRN		Entry
 
@@ -54,7 +65,38 @@ initProcedure:
             LDAB    #$0C
             STAB    SCICR2 ; TE , RE
             rts
+
+;**************************************************************
+;	initTimer
+;	type:	function
+;	Author:	Alex H.Lamarche
+;	Initialiser le timer 	
+;**************************************************************    
+initTimer:
+            MOVB    #$0A,TSCR2          ; Diviser la clock de 8MHz par 4
+                                        ; et activation du reset (TCRE)
+            MOVB    #$8C,TIOS           ; Pin 0 et 1 => Entree, 2 et 3 => Sortie
+            MOVW    #ComptReset,TC7     ; On place le reset a 40000 
+             
+            IF Simulateur = 0           
+                MOVB    #$03,TIE        ; Si en reel interrupt port Entree
+            ELSE
+                MOVB    #$0C,TIE        ; Si en sim interrupt port Sortie
+            ENDIF                                        
             
+            MOVW    #Neutre,TC2         ; Valeur initiale pour que les moteurs
+            MOVW    #Neutre,TC3         ; ne bouge pas au demarrage du robot
+            
+            MOVB    #$0C,OC7M           ; Mask des reset de sortie
+            MOVB    #$0C,OC7D           ; Activation des sortie lors du reset
+            
+            MOVB    #$A0,TCTL2
+            
+            MOVB    #$0A,TCTL4          ; Activation de la detection des rising edge
+            
+            MOVB    #$80,TSCR1          ; Activer le module TIM 
+            RTS
+
 ;**************************************************************
 ;* Messages textes
 ;**************************************************************
