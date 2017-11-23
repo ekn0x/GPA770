@@ -64,6 +64,9 @@ initProcedure:
             CLR     SCICR1 ; M BIT = 0 POUR 8 BITS
             LDAB    #$0C
             STAB    SCICR2 ; TE , RE
+			
+			; Init de la machine d'etats
+			MOVB	ARR, MEtat	; Appliquer le masque d'arret
             rts
 
 ;**************************************************************
