@@ -64,8 +64,23 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  lab_2c:
  lds #$1000
  
- ;Table_angle dc.w 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
- 
+ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;address va de #$10 à #$78
+                dc.b      
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    
+                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16   ;address termine de #$88 à #$C0
+                
 ;*************************************************************************
 ;**
 ;* Initialisation du SCI (transmetteur et récepteur de caractères sériel)
@@ -86,6 +101,9 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  JSR initPushButton
 ;Activer interuption
  CLI
+ 
+ 
+ 
  Main: ;Boucle principale qui regarde les états et attends les interruptions
  
  LDAA ETATS
@@ -106,28 +124,37 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  ;compare avec mask, va a 
  
  Acc:  ;section d'accélération (1)
- 
  BRA  Main
+ 
  Arr: ;Section d'arrêt  (2)
- MOVW #3000,TC3
- MOVW #3000,TC2
-
+ MOVW #3000,TC3	    ;moteur GAUCHE
+ MOVW #3000,TC2		;moteur DROITE
  BRA  Main
+ 
  MAV: ;Section marche avant (4)
- MOVW #3150,TC3
- MOVW #2850,TC2
-
+ ;MOVW #3150,TC3
+ ;MOVW #2850,TC2
+ LDAA #$00
+ JSR  braq_moyen
  BRA  Main
+ 
  MAR: ;Section marche arrière (8)
+ MOVW #2950,TC3
+ MOVW #3050,TC2
+ BRA  Main
+ 
+ 
+ BDR: ;Section braquage droit (10h)
  
  BRA  Main
- BDR:	 ;Section braquage droit (10h)
- 
- BRA  Main
- BGA:	 ;Section brquage gauche (20h)
+
+
+ BGA: ;Section brquage gauche (20h)
+ LDAA   #$01
  JSR braq_court
  BRA Main
- 
+
+
  ETAL: ;Section étalonnage (40h)
   
  BRA Main
@@ -158,15 +185,41 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  MOVW #$BB8,TC3 ;3000
  MOVW #$9C40,TC7 ;40 000
  MOVB #$03, TIE ; IC0 et IC1 en interruption 
- 
  MOVB #$80,TSCR1 ; Dernière initialisation et début des pulses
  
  RTS	
 
  ;ALEXIS LAGUEUX
  braq_court: 
+ CMPA   #$00
+ BEQ    BCG
+ MOVW   #3150,TC3
+ MOVW   #3150,TC2
+ BRA    BCF
  
  
+ BCG:
+ MOVW   #2850,TC3
+ MOVW   #2850,TC2
+    
+ BCF:   RTS
+ 
+ braq_moyen:
+ CMPA   #$00
+ BEQ    BMG
+ MOVW   #3000,TC3
+ MOVW   #2900,TC2
+ BRA    BMF
+ 
+ 
+ BMG:
+ MOVW   #3100,TC3
+ MOVW   #3000,TC2
+    
+ BMF:   RTS
+  
+ braq_long:
+ RTS
  ;aller copier le nombre de tick du braquage dans Y , X
  
  ;inverser les commande moteurs
@@ -175,7 +228,17 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  
  ;fin du virage
 
- RTS
+
+ 
+ 
+ 
+ ;BMG
+ ;BLG
+ 
+ ;BCD
+ ;BMD
+ ;BLD
+ 
 ;************************************************************************
 ;**
 ;* ROUTINE CREE_TAB
@@ -369,6 +432,15 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
  DEC COMPT
  BNE BOUCLE6 		 
  RTS	
+ 
+ DELAI: 
+ Boucle2:    LDX     	#5000 	; 50,000 fois en boucle interne=25 msec
+ Boucle1:    DEX 		        ; décrémente X
+		     BNE     	Boucle1	; boucle interne
+		     DEY 		        ; décrémente Y
+		     BNE 	    Boucle2	; boucle externe
+		     RTS 		        ; retour de la sous-routine
+
   
 ;*************************************************************************
 ;**
@@ -470,26 +542,24 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
  ;*************************************************************************
 ;**
 ;* ROUTINE INT_AFFICHE_TEMPS
-;* Fonction qui compte le temps. Active un drapeau pour l'affichage 
-;* Au seconde.
-;* L'interruption ce fait normalement aux 50ms
+;* Routine pour le bouton d'arrêt d'urgence;
+;*  verfifé si le bouton est pesé
 ;**
 ;*************************************************************************  
 TOGGLE_PP0:	
-       LDAA    SCISR1	        ; lecture du SCI Status Register 1
-       LDAA    SCIDRL         ; lecture du SCI Status Register 1
-       LDAA ETATS
-       CMPA #$02
-       BEQ  CARR
-   		 MOVB #$02,ETATS
-       BRA T_out
-CARR:	 MOVB #$04,ETATS
-T_out: MOVB    #$02,PIFP       ; Aquitter l'interruption
-       NOP
-       NOP
-       NOP
-       NOP
-       NOP
+       LDAA     SCISR1	        ; lecture du SCI Status Register 1
+       LDAA     SCIDRL         ; lecture du SCI Status Register 1
+       LDAA     ETATS
+       CMPA     #$02
+       BEQ      CARR
+   	   MOVB     #$02,ETATS
+       BRA      T_out
+CARR:  MOVB     #$04,ETATS
+T_out: MOVB     #$02,PIFP       ; Aquitter l'interruption
+	   LDY      #10				; On fais un delai d'une demi-seconde		   (ANTOINE, MICHAEL)
+	   JSR      DELAI																   ;(ANTOINE, MICHAEL)
+	   BRSET    PIFP,#$02,T_out ; Vérifie si le flag est à 1, sinon on refait l'interruption    (ANTOINE, MICHAEL)
+	      
        RTI
  
 ;*************************************************************************
