@@ -1,6 +1,6 @@
 ;*************************************************************************
 ;* *
-;* Auteur : Samuel Fortin
+;* Auteurs : Samuel Fortin
 ;           Alexis Lagueux 
 ;* Date :   Novembre 2017 
 ;* *									 
@@ -22,9 +22,48 @@
  list ; fichier .LST
 ;Adresse absolue pour le début du programme et des constantes
 ROMStart EQU $4000 
- 
+
+MARKER          EQU  $FE    	    ;Pour la fuzzy logique        
+ENDRO           EQU  $FF
+O_D_L           EQU  $00
+O_D_M           EQU  $01
+O_D_P           EQU  $02
+O_C_L           EQU  $03
+O_C_M           EQU  $04
+O_C_P           EQU  $05
+O_G_L           EQU  $06
+O_G_M           EQU  $07
+O_G_P           EQU  $08
+O_SF_ADROITE    EQU  $09
+O_SF_AVANT      EQU  $0A
+O_SF_AGAUCHE    EQU  $0B 
   
  ORG RAMStart
+ 
+ ; Voltage capteur			        ;Pour la fuzzy logique
+Vcapt_droit:     DS.B    1
+Vcapt_centre:    DS.B    1
+Vcapt_gauche:    DS.B    1
+
+; Valeur d'appartenance
+D_L:             DS.B    1
+D_M:             DS.B    1
+D_P:             DS.B    1
+C_L:             DS.B    1
+C_M:             DS.B    1
+C_P:             DS.B    1
+G_L:             DS.B    1
+G_M:             DS.B    1
+G_P:             DS.B    1             
+
+
+; Valeur des regles
+SF_ADROITE:      DS.B    1
+SF_AVANT:        DS.B    1
+SF_AGAUCHE:      DS.B    1
+
+; Commande
+COMMANDE:        DS.B    1
  
 ;************************************************************************
 ;**
@@ -32,16 +71,17 @@ ROMStart EQU $4000
 ;**
 ;************************************************************************
 
-VConstante: ds.w 1		;constante de vitesse
-TTotal: ds.w 1				;Temps total
-TA: ds.w 1						;Temps partiel A
-TC: ds.w 1						;Temps partiel C
-DELTAV: ds.w 1				;Grandeur de saut de vitesse par temps
-VMD: ds.w 30					;Vitesse du moteur de droite
-VMG: ds.w 30					;Vitesse du moteur de gauche 
-COMPT: ds.b 1		     	;Compteur pour les boucles pour créer les tableaux
-COMPT2: ds.b 2			   ;Compteur pour afficher	
-COMPT3: ds.b 1         ;Compt interreuption /pulse
+VConstante: ds.w 1	   ;constante de vitesse
+TTotal: ds.w 1		   ;Temps total
+TA: ds.w 1			   ;Temps partiel A
+TC: ds.w 1			   ;Temps partiel C
+DELTAV: ds.w 1		   ;Grandeur de saut de vitesse par temps
+VMD: ds.w 30		   ;Vitesse du moteur de droite
+VMG: ds.w 30		   ;Vitesse du moteur de gauche 
+COMPT: ds.b 1		   ;Compteur pour les boucles pour créer les tableaux
+COMPT2: ds.b 2		   ;Compteur pour afficher	
+COMPT3: ds.b 1         ;Compt interruption /pulse
+COMPTBRA: ds.b 1       ;Compt le nombre de ticks durant le braquage
 FLAG_MESSAGE: ds.b 1   ;Affiche le message
 ADRESSE_TEMPX: ds.w 1  ;Affiche le message
 ADRESSE_TEMPY: ds.w 1  ;Affiche le message
@@ -64,22 +104,24 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
  lab_2c:
  lds #$1000
  
-ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;address va de #$10 à #$78
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16  
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-                dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16   ;address termine de #$88 à #$C0
+ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1 	        ;address va de #$10 à #$78
+                dc.b    107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92  
+                dc.b    91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76
+                dc.b    75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60
+                dc.b    59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44
+                dc.b    43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28
+                dc.b    27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12
+                dc.b    11, 10, 9,  8,  7,  6,  5,  4,  3,  2,  1,  1,  1,  1,  1,  1
+                dc.b    1,	1,	1,	1,	1,	1,	2,	3,	4,	5,	6,	7,	8,	9,	10,	11
+                dc.b    12,	13,	14,	15,	16,	17,	18,	19,	20,	21,	22,	23,	24,	25,	26,	27
+                dc.b    28,	29,	30,	31,	32,	33,	34,	35,	36,	37,	38,	39,	40,	41,	42,	43
+                dc.b    44,	45,	46,	47,	48,	49,	50,	51,	52,	53,	54,	55,	56,	57,	58,	59
+                dc.b    60,	61,	62,	63,	64,	65,	66,	67,	68,	69,	70,	71,	72,	73,	74,	75 
+                dc.b    76,	77,	78,	79,	80,	81,	82,	83,	84,	85,	86,	87,	88,	89,	90,	91
+                dc.b    92,	93,	94,	95,	96,	97,	98,	99,	100, 101, 102, 103,	104, 105, 106, 107
+                dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1           ;address termine de #$88 à #$F0
+                
+
                 
 ;*************************************************************************
 ;**
@@ -94,7 +136,7 @@ ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;
  STAB SCICR2 ; TE , RE
 
 ;*************************************************************************
-;INIT: Arr =1
+;INIT: ARR =1
 
  MOVB #$02,ETATS
  JSR INIT_PULSE
@@ -102,15 +144,17 @@ ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;
 ;Activer interuption
  CLI
  
- 
+ MOVB #$00,SF_ADROITE
+ MOVB #$00,SF_AVANT
+ MOVB #$00,SF_AGAUCHE
  
  Main: ;Boucle principale qui regarde les états et attends les interruptions
  
  LDAA ETATS
  CMPA #$01
- BEQ  Acc
+ BEQ  ACC
  CMPA #$02
- BEQ  Arr														  
+ BEQ  ARR														  
  CMPA #$04
  BEQ  MAV
  CMPA #$08
@@ -123,10 +167,10 @@ ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;
  BEQ  ETAL
  ;compare avec mask, va a 
  
- Acc:  ;section d'accélération (1)
+ ACC:  ;section d'accélération (1)
  BRA  Main
  
- Arr: ;Section d'arrêt  (2)
+ ARR: ;Section d'arrêt  (2)
  MOVW #3000,TC3	    ;moteur GAUCHE
  MOVW #3000,TC2		;moteur DROITE
  BRA  Main
@@ -190,36 +234,39 @@ ANGLES:         dc.b    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 	;
  RTS	
 
  ;ALEXIS LAGUEUX
- braq_court: 
- CMPA   #$00
- BEQ    BCG
- MOVW   #3150,TC3
- MOVW   #3150,TC2
- BRA    BCF
+ ;braq_court: 
+ ;CMPA   #$00
+ ;BEQ    BCG
+ ;MOVW   #3150,TC3
+ ;MOVW   #3150,TC2
+ ;BRA    BCF
  
  
- BCG:
- MOVW   #2850,TC3
- MOVW   #2850,TC2
+ ;BCG:
+ ;MOVW   #2850,TC3
+ ;MOVW   #2850,TC2
     
- BCF:   RTS
+ ;BCF:   RTS
  
  braq_moyen:
+ DEC    COMPTBRA
+ BEQ    BMF
  CMPA   #$00
  BEQ    BMG
  MOVW   #3000,TC3
- MOVW   #2900,TC2
- BRA    BMF
- 
+ MOVW   #2945,TC2
+ BRA    braq_moyen
  
  BMG:
- MOVW   #3100,TC3
+ MOVW   #3055,TC3
  MOVW   #3000,TC2
+ BRA    braq_moyen
     
  BMF:   RTS
   
- braq_long:
- RTS
+ ;braq_long:
+ ;RTS
+ 
  ;aller copier le nombre de tick du braquage dans Y , X
  
  ;inverser les commande moteurs
@@ -339,7 +386,7 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 ;*************************************************************************
 ;**
 ;* ROUTINE PROFIL
-;* Fonction qui remplir les tableau de vitesse des moteurs en fonction 
+;* Fonction qui rempli les tableau de vitesse des moteurs en fonction 
 ;* du temps 
 ;** 
 ;*************************************************************************
@@ -355,7 +402,7 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 
 ;boucle 1 : Monter de vitesse du moteur de gauche
  		
- BOUCLE1: ADDD 0,x ;Départ de la boucle et adition des valeurs précédente avec x
+ BOUCLE1: ADDD 0,x ;Départ de la boucle et addition des valeurs précédente avec x
  
  STD 2,y+          ;Storage du résultat dans 2 espace puis décalage
     
@@ -539,12 +586,12 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
  RTI
  
  
- ;*************************************************************************
-;**
-;* ROUTINE INT_AFFICHE_TEMPS
-;* Routine pour le bouton d'arrêt d'urgence;
-;*  verfifé si le bouton est pesé
-;**
+;*************************************************************************
+;*																		 *
+;* ROUTINE INT_AFFICHE_TEMPS											 *
+;* Routine pour le bouton d'arrêt d'urgence;							 *
+;*  verfifé si le bouton est pesé										 *
+;*																		 *
 ;*************************************************************************  
 TOGGLE_PP0:	
        LDAA     SCISR1	        ; lecture du SCI Status Register 1
@@ -563,12 +610,12 @@ T_out: MOVB     #$02,PIFP       ; Aquitter l'interruption
        RTI
  
 ;*************************************************************************
-;**
-;* Liste des message utiliser dans le programme 
-;* $0A = descendre le curseur d’une ligne
-;* $0D = retourner le curseur à la colonne 0
-;* $00 = fin de texte pour la fonction printf
-;**
+;*																		 *
+;* Liste des message utiliser dans le programme 						 *
+;* $0A = descendre le curseur d’une ligne								 *
+;* $0D = retourner le curseur à la colonne 0							 *
+;* $00 = fin de texte pour la fonction printf							 *
+;*																		 *
 ;*************************************************************************
  		 
 Message0: dc.b $0A,$0D,$00
@@ -578,13 +625,74 @@ Message2: dc.b ' secondes ',$0A,$0D,$00
  	  	 
 ;Fin du code lab_2c
 
+
+
+;Code lab2d	  Fuzzy logique
+
+;**************************************************************
+;*                    Function Membre                         *
+;* NAME:        DC.B    Pts1, Pts2, Pent2, Pente2             *
+;**************************************************************
+; Right
+D_LOIN:       DC.B    $00, $30, $00, $10
+D_MIDI:       DC.B    $20, $60, $10, $10
+D_PRES:       DC.B    $50, $FF, $10, $00
+; Center
+C_LOIN:       DC.B    $00, $30, $00, $10
+C_MIDI:       DC.B    $20, $60, $10, $10
+C_PRES:       DC.B    $50, $FF, $10, $00
+; Left
+G_LOIN:       DC.B    $00, $30, $00, $10
+G_MIDI:       DC.B    $20, $60, $10, $10
+G_PRES:       DC.B    $50, $FF, $10, $00
+
+;**************************************************************
+;*                          Rules                             *
+;* NAME:        DC.B                                          *
+;**************************************************************
+RULESTART: DC.W     O_G_L, O_C_L, O_D_L, MARKER, O_SF_AVANT,   MARKER ;1
+           DC.W     O_G_L, O_C_L, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;2
+           DC.W     O_G_L, O_C_L, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;3
+           DC.W     O_G_L, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;4
+           DC.W     O_G_L, O_C_M, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;5 
+           DC.W     O_G_L, O_C_M, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;6 
+           DC.W     O_G_L, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;7 
+           DC.W     O_G_L, O_C_P, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;8 
+           DC.W     O_G_L, O_C_P, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;9 
+           DC.W     O_G_M, O_C_L, O_D_L, MARKER, O_SF_ADROITE, MARKER ;10
+           DC.W     O_G_M, O_C_L, O_D_M, MARKER, O_SF_ADROITE, MARKER ;11 
+           DC.W     O_G_M, O_C_L, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;12 
+           DC.W     O_G_M, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;13 
+           DC.W     O_G_M, O_C_M, O_D_M, MARKER, O_SF_ADROITE, MARKER ;14 
+           DC.W     O_G_M, O_C_M, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;15 
+           DC.W     O_G_M, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;16 
+           DC.W     O_G_M, O_C_P, O_D_M, MARKER, O_SF_ADROITE, MARKER ;17 
+           DC.W     O_G_M, O_C_P, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;18 
+           DC.W     O_G_P, O_C_L, O_D_L, MARKER, O_SF_ADROITE, MARKER ;19 
+           DC.W     O_G_P, O_C_L, O_D_M, MARKER, O_SF_ADROITE, MARKER ;20 
+           DC.W     O_G_P, O_C_L, O_D_P, MARKER, O_SF_ADROITE, MARKER ;21 
+           DC.W     O_G_P, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;22 
+           DC.W     O_G_P, O_C_M, O_D_M, MARKER, O_SF_ADROITE, MARKER ;23 
+           DC.W     O_G_P, O_C_M, O_D_P, MARKER, O_SF_ADROITE, MARKER ;24 
+           DC.W     O_G_P, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;25 
+           DC.W     O_G_P, O_C_P, O_D_M, MARKER, O_SF_ADROITE, MARKER ;26 
+           DC.W     O_G_P, O_C_P, O_D_P, MARKER, O_SF_ADROITE, ENDRO  ;27 
+  
+
+;**************************************************************
+;*                       Singleton                            *
+;* NAME:        DC.B    Liste de valeur                       *
+;**************************************************************
+SINGLETON: DC.B $F0, $80, $10
+
+
  INCLUDE 'D_BUG12M.ASM'
 
  
 ;************************************************************************
-;**
-;*Vecteur Interuption des routines et du reset
-;**
+;*																		*
+;*Vecteur Interuption des routines et du reset							*
+;*																		*
 ;************************************************************************
 
  ;interrupt compteur temps IC1
