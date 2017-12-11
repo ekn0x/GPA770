@@ -71,20 +71,23 @@ COMMANDE:        DS.B    1
 ;**
 ;************************************************************************
 
-VConstante: ds.w 1	   ;constante de vitesse
-TTotal: ds.w 1		   ;Temps total
-TA: ds.w 1			   ;Temps partiel A
-TC: ds.w 1			   ;Temps partiel C
-DELTAV: ds.w 1		   ;Grandeur de saut de vitesse par temps
-VMD: ds.w 30		   ;Vitesse du moteur de droite
-VMG: ds.w 30		   ;Vitesse du moteur de gauche 
-COMPT: ds.b 1		   ;Compteur pour les boucles pour créer les tableaux
-COMPT2: ds.b 2		   ;Compteur pour afficher	
-COMPT3: ds.b 1         ;Compt interruption /pulse
-COMPTBRA: ds.b 1       ;Compt le nombre de ticks durant le braquage
-FLAG_MESSAGE: ds.b 1   ;Affiche le message
-ADRESSE_TEMPX: ds.w 1  ;Affiche le message
-ADRESSE_TEMPY: ds.w 1  ;Affiche le message
+VConstante:    ds.w 1  ; Constante de vitesse
+TTotal:        ds.w 1  ; Temps total
+TA:            ds.w 1  ; Temps partiel A
+TC:            ds.w 1  ; Temps partiel C
+DELTAV:        ds.w 1  ; Grandeur de saut de vitesse par temps
+VMD:           ds.w 30 ; Vitesse du moteur de droite
+VMG:           ds.w 30 ; Vitesse du moteur de gauche 
+COMPT:         ds.b 1  ; Compteur pour les boucles pour créer les tableaux
+COMPT2:        ds.b 2  ; Compteur pour afficher	
+COMPT3:        ds.b 1  ; Compt interruption /pulse
+COMPTBRA:      ds.b 1  ; Compt le nombre de ticks durant le braquage
+FLAG_MESSAGE:  ds.b 1  ; Affiche le message
+ADRESSE_TEMPX: ds.w 1  ; Affiche le message
+ADRESSE_TEMPY: ds.w 1  ; Affiche le message
+COMPTARR       ds.b 1  ; Compteur marche arrière
+COMPTBAG       ds.b 1  ; Compteur braquage gauche
+COMPTBAD       ds.b 1  ; Compteur braquage droite
 
 ;**********************************DÉBUT VARIABLE DU PROJET***************
 
@@ -147,67 +150,6 @@ ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  
  MOVB #$00,SF_ADROITE
  MOVB #$00,SF_AVANT
  MOVB #$00,SF_AGAUCHE
- 
- Main: ;Boucle principale qui regarde les états et attends les interruptions
- 
- LDAA ETATS
- CMPA #$01
- BEQ  ACC
- 
- CMPA #$02
- BEQ  ARR
- 														  
- CMPA #$04
- BEQ  MAV
- 
- CMPA #$08
- BEQ  MAR
- 
- CMPA #$10
- BEQ  BDR
- 
- CMPA #$20
- BEQ  BGA
- 
- CMPA #$40
- BEQ  ETAL
- ;compare avec mask, va a 
- 
- ACC:  ;section d'accélération (1)
- BRA  Main
- 
- ARR: ;Section d'arrêt  (2)
- MOVW #3000,TC3	    ;moteur GAUCHE
- MOVW #3000,TC2		;moteur DROITE
- BRA  Main
- 
- MAV: ;Section marche avant (4)
- ;MOVW #3150,TC3
- ;MOVW #2850,TC2
- LDAA #$00
- JSR  braq_moyen
- BRA  Main
- 
- MAR: ;Section marche arrière (8)
- MOVW #2950,TC3
- MOVW #3050,TC2
- BRA  Main
- 
- 
- BDR: ;Section braquage droit (10h)
- 
- BRA  Main
-
-
- BGA: ;Section brquage gauche (20h)
- LDAA   #$01
- JSR braq_court
- BRA Main
-
-
- ETAL: ;Section étalonnage (40h)
-  
- BRA Main
  
 ;*************************************************************************
 ;**
@@ -500,6 +442,72 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 ;*ROUTINE D'INTERRUPTION
 ;**
 ;*************************************************************************  
+
+
+
+;*************************************************************************
+;**
+;* ROUTINE DECISION
+;* Fonction qui regarde ou elle se trouve et prends action en conséquence
+;* Cette routine est appelé a toutes les 20 ms 
+;**
+;*************************************************************************
+
+DECISION:
+    
+    LDAA ETATS
+    CMPA #$01
+    BEQ  ACC
+    CMPA #$02
+    BEQ  ARR														  
+    CMPA #$04
+    BEQ  MAV
+    CMPA #$08
+    BEQ  MAR
+    CMPA #$10
+    BEQ  BDR
+    CMPA #$20
+    BEQ  BGA
+    CMPA #$40
+    BEQ  ETAL
+    
+ACC:
+    ;LAB2C
+    BRA MAV
+
+ARR:
+    MOVW #$3000,TC2
+    MOVW #$3000,TC3   
+    DEC COMPTARR
+    BEQ BGA
+    BRA END_DEC
+    
+MAV:
+    MOVW #3150,TC3
+    MOVW #2850,TC2 
+    BRA END_DEC
+
+MAR:
+    MOVW #2950,TC3
+    MOVW #3050,TC2
+    BRA END_DEC
+
+BDR:
+    DEC COMPTBAD
+    BEQ MAV
+    BRA END_DEC
+
+BGA:
+    DEC COMPTBAD
+    BEQ MAV
+    BRA END_DEC
+
+ETAL:
+     ;A FAIRE
+     BRA END_DEC
+
+END_DEC: RTI
+
 
 ;*************************************************************************
 ;**
