@@ -179,7 +179,8 @@ MAIN:
     JSR FINAL
     JSR afficherResultats  ;transformer pour LCD et non pas comm serie    
     JSR FUZZI
-    LDY #10
+    JSR BRAQ
+    LDY #15
     JSR DELAI 
     BRA MAIN
     
@@ -198,9 +199,14 @@ BRAQ:
 			MOVW  X,COMPTBRA
 
             LDAA COMMANDE
-            CMPA #$80
+            CMPA #$88
             BHI Droite
-            MOVB    #$20,ETATS
+            CMPA #$78
+            BLO Gauche
+            MOVB #$04, ETATS
+            BRA AFF
+Gauche:     MOVB    #$20,ETATS
+            
             BRA AFF
             
 Droite:     MOVB    #$10,ETATS
@@ -211,9 +217,9 @@ FINAL:      MOVB	#$91,ATDCTL5            	; début de conversion justifiée à d
                                             	; canal 1
                                             	
 Attendre:  	brclr    	ATDSTAT0,$80,Attendre   	; Attendre la fin des trois conversions (SCF)
-           	movb     	ATDDR2L, Vcapt_droit 		; sauvegarde des trois voltages des capteurs
+           	movb     	ATDDR2L, Vcapt_gauche 		; sauvegarde des trois voltages des capteurs
            	movb     	ATDDR1L, Vcapt_centre
-           	movb     	ATDDR0L, Vcapt_gauche
+           	movb     	ATDDR0L, Vcapt_droit
 			RTS
   ;***********************************************************************
             ;*								Fuzzification						   *
@@ -270,8 +276,10 @@ CAPT_G:     MEM
             WAV
             EDIV
             TFR Y,D
-            
+           JSR initPortLCD 
             STAB COMMANDE
+            LDAB    COMMANDE
+            JSR  LCD2hex
             RTS
             
 initPortLCD:
@@ -305,13 +313,13 @@ afficherResultats:
             JSR initPortLCD
               
             LDAB    Vcapt_gauche  ;Mettre la valeur de 'VCAPT_GAUCHE' dans 'B'
-            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
-            AFFLCD  ':',2,$05
+           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+           ; AFFLCD  ':',2,$05
             LDAB    Vcapt_centre  ;Mettre la valeur de 'VCAPT_CENTRE' dans 'B'
-            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
-            AFFLCD  ':',2,$05
+           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+           ; AFFLCD  ':',2,$05
             LDAB    Vcapt_droit   ;Mettre la valeur de 'VCAPT_DROIT' dans 'B'
-            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
             
             rts
 ;*************************************************************************
@@ -605,7 +613,7 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 ;*************************************************************************
 
 DECISION:
-
+    ;JSR initPortLCD
     MOVB #$01,TFLG1
     
     LDAA ETATS
@@ -648,6 +656,8 @@ MAR:
 BDR:
     DEC COMPTBRA
     BEQ FOW
+    ;LDAB    COMPTBRA  
+    ;JSR     LCD2hex 
     MOVW   #3000,TC3
     MOVW   #2945,TC2
     BRA END_DEC
@@ -655,6 +665,8 @@ BDR:
 BGA:
     DEC COMPTBRA
     BEQ FOW
+   ; LDAB    COMPTBRA  
+   ; JSR     LCD2hex
     MOVW   #3055,TC3
     MOVW   #3000,TC2
     BRA END_DEC
@@ -664,6 +676,7 @@ ETAL:
      BRA END_DEC
      
 FOW: MOVB #$04,ETATS
+     BRA END_DEC
 
 BRAC: MOVB #$20,ETATS
 
@@ -814,7 +827,7 @@ T_out: MOVB     #01,PIFP       ; Aquitter l'interruption
         MOVB  #50, COMPTARR        
         MOVB  #8, ETATS
         
-        MOVB  #12, PIFP 
+        MOVB  #14, PIFP 
 	   	
         RTI
         
