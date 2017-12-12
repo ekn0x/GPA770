@@ -12,7 +12,7 @@
 ;* *
 ;*************************************************************************
 ; Point d’entrée du programme
- ABSENTRY lab_2c; point d’entrée pour adressage absolu
+ ABSENTRY Entry; point d’entrée pour adressage absolu
  nolist ; Désactiver l’insertion de texte dans le
 ; fichier .LST
  INCLUDE 'mc9s12c32.inc' ; Inclusion du fichier d’identification des
@@ -37,7 +37,17 @@ O_G_P           EQU  $08
 O_SF_ADROITE    EQU  $09
 O_SF_AVANT      EQU  $0A
 O_SF_AGAUCHE    EQU  $0B 
-  
+
+
+affLCD:     MACRO
+			MOVB    #\3, PORTB
+			MOVB    #\1, PORTA
+			BCLR     PORTB, $04
+			LDY     #\2
+			JSR     DELAI
+			BSET    PORTB, $04
+            ENDM 
+             
  ORG RAMStart
  
  ; Voltage capteur			        ;Pour la fuzzy logique
@@ -81,13 +91,12 @@ VMG:           ds.w 30 ; Vitesse du moteur de gauche
 COMPT:         ds.b 1  ; Compteur pour les boucles pour créer les tableaux
 COMPT2:        ds.b 2  ; Compteur pour afficher	
 COMPT3:        ds.b 1  ; Compt interruption /pulse
-COMPTBRA:      ds.b 1  ; Compt le nombre de ticks durant le braquage
+COMPTBRA:      ds.B 1  ; Compt le nombre de ticks durant le braquage
 FLAG_MESSAGE:  ds.b 1  ; Affiche le message
 ADRESSE_TEMPX: ds.w 1  ; Affiche le message
 ADRESSE_TEMPY: ds.w 1  ; Affiche le message
 COMPTARR       ds.b 1  ; Compteur marche arrière
-COMPTBAG       ds.b 1  ; Compteur braquage gauche
-COMPTBAD       ds.b 1  ; Compteur braquage droite
+
 
 ;**********************************DÉBUT VARIABLE DU PROJET***************
 
@@ -104,8 +113,8 @@ Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
 ;*************************************************************************
 
  ORG ROMStart
- lab_2c:
- lds #$1000
+ 
+ 
  
 ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1 	        ;address va de #$10 à #$78
                 dc.b    107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92  
@@ -124,8 +133,8 @@ ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  
                 dc.b    92,	93,	94,	95,	96,	97,	98,	99,	100, 101, 102, 103,	104, 105, 106, 107
                 dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1           ;address termine de #$88 à #$F0
                 
-
-                
+  Entry:
+  lds #$1000              
 ;*************************************************************************
 ;**
 ;* Initialisation du SCI (transmetteur et récepteur de caractères sériel)
@@ -139,24 +148,172 @@ ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  
  STAB SCICR2 ; TE , RE
 
 ;*************************************************************************
+;   Initialisation du convertisseur N/A
+;   	Mode 8 bits non signés à droite
+;   	Multiple numérisations. Canal 1, 2 et 3
+;  	Vitesse du ‘sample and hold’ à 2 coups d'horloge
+;   	Vitesse de l'horloge de conversion à 2MHz
+
+       	movb    	#$C0,ATDCTL2            	; mise en marche du convertisseur et du AFFC
+        movb   	#$18,ATDCTL3            	; 3 conversions à la fois
+        movb    	#$81,ATDCTL4            	; 8 bits, 2 clocks S/H, 2MHz    
+;*************************************************************************
 ;INIT: ARR =1
 
- MOVB #$02,ETATS
+ MOVB #$02,ETATS	   
  JSR INIT_PULSE
  JSR initPushButton
+ JSR initPortLCD
 ;Activer interuption
  CLI
  
  MOVB #$00,SF_ADROITE
  MOVB #$00,SF_AVANT
  MOVB #$00,SF_AGAUCHE
- 
+
+
+MAIN:
+    LDAA ETATS
+    CMPA #$02
+    BEQ MAIN    
+    JSR FINAL
+    JSR afficherResultats  ;transformer pour LCD et non pas comm serie    
+    JSR FUZZI
+    LDY #10
+    JSR DELAI 
+    BRA MAIN
+    
+            
+
+            
 ;*************************************************************************
 ;**
 ;* SECTION DES ROUTINES
 ;**
 ;************************************************************************* 
+BRAQ:       
+            LDAB  ANGLES
+            LDX  #COMMANDE
+            ABX
+			MOVW  X,COMPTBRA
 
+            LDAA COMMANDE
+            CMPA #$80
+            BHI Droite
+            MOVB    #$20,ETATS
+            BRA AFF
+            
+Droite:     MOVB    #$10,ETATS
+AFF:	    RTS
+
+
+FINAL:      MOVB	#$91,ATDCTL5            	; début de conversion justifiée à droite, multiple, à partir du 
+                                            	; canal 1
+                                            	
+Attendre:  	brclr    	ATDSTAT0,$80,Attendre   	; Attendre la fin des trois conversions (SCF)
+           	movb     	ATDDR2L, Vcapt_droit 		; sauvegarde des trois voltages des capteurs
+           	movb     	ATDDR1L, Vcapt_centre
+           	movb     	ATDDR0L, Vcapt_gauche
+			RTS
+  ;***********************************************************************
+            ;*								Fuzzification						   *
+            ;***********************************************************************
+            
+FUZZI:      ; Preparation pour evalution des fonctions membres capteur droit
+            LDX  #D_LOIN
+            LDY  #D_L
+            LDAA Vcapt_droit 
+            LDAB #$03
+            ; Evaluation des fonction membres capteur droit
+CAPT_D:     MEM
+            DBNE B,CAPT_D
+             
+            ; Preparation pour evalution des fonctions membres capteur centre
+            LDX  #C_LOIN
+            LDY  #C_L
+            LDAA Vcapt_centre 
+            LDAB #$03
+            ; Evaluation des fonction membres capteur droit
+CAPT_C:     MEM
+            DBNE B,CAPT_C
+             
+            ; Preparation pour evalution des fonctions membres capteur gauche
+            LDX  #G_LOIN
+            LDY  #G_L
+            LDAA Vcapt_gauche 
+            LDAB #$03
+            ; Evaluation des fonctions membres capteur gauche
+CAPT_G:     MEM
+            DBNE B,CAPT_G
+            
+                    
+            ;***********************************************************************
+            ;*						Evaluation des regles						   *
+            ;*********************************************************************** 
+             
+            ; Preparation pour evalution regles
+            LDY  #D_L
+            LDX  #RULESTART
+            LDAA #ENDRO
+            ; Evaluation des regles          
+            REV  
+             
+            ;***********************************************************************
+            ;*				      		Calcul de sortie						   *
+            ;*********************************************************************** 
+            
+            ; Preparation du calcul de sortie
+            LDX  #SINGLETON
+            LDY  #SF_ADROITE
+            LDAB #$03
+            ; Evaluation de la sortie
+            WAV
+            EDIV
+            TFR Y,D
+            
+            STAB COMMANDE
+            RTS
+            
+initPortLCD:
+		;BSET    DDRB, #$07      ; Set la direction du portB
+		;BSET    DDRA, #$FF      ; Set la direction du portA
+		MOVB    #$FF, DDRA  ;Initialiser le PORTA en mode sortie
+        MOVB    #$FF, DDRB  ;Initialiser le PORTB en mode sortie
+		; 
+		affLCD  $30, 15, $04   ; reset1
+		affLCD  $30, $04, $04   ; reset2			  
+		affLCD  $30, $04, $04   ; reset3
+		affLCD  $30, $04, $04   ; 1/2 ligne
+		affLCD  $08, $04, $04   ; DisplayOff
+		affLCD  $01, $04, $04   ; Clear Display
+		affLCD  $06, $04, $04   ; Type Curseur
+		affLCD  $0E, $04, $04   ; DisplayOn
+		
+        rts
+        
+DELAI: 
+Boucle2:LDX 	#5000 	; 50,000 fois en boucle interne=25 msec
+Boucle1:DEX 		    ; décrémente X
+		BNE 	Boucle1	; boucle interne
+		DEY 		    ; décrémente Y
+		BNE 	Boucle2	; boucle externe
+		RTS 		    ; retour de la sous-routine
+  ;**************************************************************
+;*             Fonction d'afficheage                          *
+;**************************************************************
+afficherResultats:            
+            JSR initPortLCD
+              
+            LDAB    Vcapt_gauche  ;Mettre la valeur de 'VCAPT_GAUCHE' dans 'B'
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            AFFLCD  ':',2,$05
+            LDAB    Vcapt_centre  ;Mettre la valeur de 'VCAPT_CENTRE' dans 'B'
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            AFFLCD  ':',2,$05
+            LDAB    Vcapt_droit   ;Mettre la valeur de 'VCAPT_DROIT' dans 'B'
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            
+            rts
 ;*************************************************************************
 ;**
 ;* ROUTINE INIT_PULSE
@@ -196,21 +353,21 @@ ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  
     
  ;BCF:   RTS
  
- braq_moyen:
- DEC    COMPTBRA
- BEQ    BMF
- CMPA   #$00
- BEQ    BMG
- MOVW   #3000,TC3
- MOVW   #2945,TC2
- BRA    braq_moyen
+; braq_moyen:
+; DEC    COMPTBRA
+; BEQ    BMF
+; CMPA   #$00
+; BEQ    BMG
+; MOVW   #3000,TC3
+; MOVW   #2945,TC2
+; BRA    braq_moyen
  
- BMG:
- MOVW   #3055,TC3
- MOVW   #3000,TC2
- BRA    braq_moyen
+; BMG:
+; MOVW   #3055,TC3
+; MOVW   #3000,TC2
+; BRA    braq_moyen
     
- BMF:   RTS
+; BMF:   RTS
   
  ;braq_long:
  ;RTS
@@ -275,10 +432,10 @@ ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  
 ;	5V ---- PPSP ---- 470Ohm ---- PERP ---- PORTP --+-- PushButton ---- Gnd
 initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 		BCLR	DDRP,$00		; mode 0 - mode read
-		BSET	PERP,$03		; mode 1 - either pullup or pulldown
+		BSET	PERP,$FF		; mode 1 - either pullup or pulldown
 		MOVB	#$00,PPSP		; mode 0 - mode pull up
-		MOVB    #$02,PIFP       ; set the flag for the interrup on PP1
-		MOVB    #$02,PIEP       ; enable the interrupt on PP1
+		MOVB    #$15,PIFP       ; set the flag for the interrup on PP1
+		MOVB    #$15,PIEP       ; enable the interrupt on PP1
 		NOP
 		NOP
 		NOP
@@ -428,13 +585,7 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
  BNE BOUCLE6 		 
  RTS	
  
- DELAI: 
- Boucle2:    LDX     	#5000 	; 50,000 fois en boucle interne=25 msec
- Boucle1:    DEX 		        ; décrémente X
-		     BNE     	Boucle1	; boucle interne
-		     DEY 		        ; décrémente Y
-		     BNE 	    Boucle2	; boucle externe
-		     RTS 		        ; retour de la sous-routine
+ 
 
   
 ;*************************************************************************
@@ -454,6 +605,8 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
 ;*************************************************************************
 
 DECISION:
+
+    MOVB #$01,TFLG1
     
     LDAA ETATS
     CMPA #$01
@@ -473,13 +626,11 @@ DECISION:
     
 ACC:
     ;LAB2C
-    BRA MAV
+    BRA FOW
 
 ARR:
-    MOVW #$3000,TC2
-    MOVW #$3000,TC3   
-    DEC COMPTARR
-    BEQ BGA
+    MOVW #3000,TC2
+    MOVW #3000,TC3   
     BRA END_DEC
     
 MAV:
@@ -490,21 +641,31 @@ MAV:
 MAR:
     MOVW #2950,TC3
     MOVW #3050,TC2
+    DEC COMPTARR
+    BEQ BRAC
     BRA END_DEC
 
 BDR:
-    DEC COMPTBAD
-    BEQ MAV
+    DEC COMPTBRA
+    BEQ FOW
+    MOVW   #3000,TC3
+    MOVW   #2945,TC2
     BRA END_DEC
 
 BGA:
-    DEC COMPTBAD
-    BEQ MAV
+    DEC COMPTBRA
+    BEQ FOW
+    MOVW   #3055,TC3
+    MOVW   #3000,TC2
     BRA END_DEC
 
 ETAL:
      ;A FAIRE
      BRA END_DEC
+     
+FOW: MOVB #$04,ETATS
+
+BRAC: MOVB #$20,ETATS
 
 END_DEC: RTI
 
@@ -608,6 +769,24 @@ END_DEC: RTI
 ;*																		 *
 ;*************************************************************************  
 TOGGLE_PP0:	
+	  
+	   BRSET    PIFP,#1,MARARR
+	   BRSET    PIFP,#2,INT_PARECHOC    ;A CHANGER POUR ETALONAGE
+	   BRSET    PIFP,#4,INT_PARECHOC
+	   BRSET    PIFP,#8,INT_PARECHOC
+	      
+       RTI
+       
+       
+;*************************************************************************
+;*																		 *
+;* ROUTINE INT_AFFICHE_TEMPS											 *
+;* Routine pour le bouton d'arrêt d'urgence;							 *
+;*  verfifé si le bouton est pesé										 *
+;*																		 *
+;*************************************************************************  
+MARARR:
+       	
        LDAA     SCISR1	        ; lecture du SCI Status Register 1
        LDAA     SCIDRL         ; lecture du SCI Status Register 1
        LDAA     ETATS
@@ -616,13 +795,29 @@ TOGGLE_PP0:
    	   MOVB     #$02,ETATS
        BRA      T_out
 CARR:  MOVB     #$04,ETATS
-T_out: MOVB     #$02,PIFP       ; Aquitter l'interruption
+T_out: MOVB     #01,PIFP       ; Aquitter l'interruption
 	   LDY      #10				; On fais un delai d'une demi-seconde		   (ANTOINE, MICHAEL)
 	   JSR      DELAI																   ;(ANTOINE, MICHAEL)
-	   BRSET    PIFP,#$02,T_out ; Vérifie si le flag est à 1, sinon on refait l'interruption    (ANTOINE, MICHAEL)
+	   BRSET    PIFP,#01,T_out ; Vérifie si le flag est à 1, sinon on refait l'interruption    (ANTOINE, MICHAEL)
 	      
-       RTI
+       BRA  TOGGLE_PP0
  
+;*************************************************************************
+;*																		 *
+;* ROUTINE INT_AFFICHE_TEMPS											 *
+;* Routine pour le bouton d'arrêt d'urgence;							 *
+;*  verfifé si le bouton est pesé										 *
+;*																		 *
+;*************************************************************************   
+ INT_PARECHOC:
+        
+        MOVB  #50, COMPTARR        
+        MOVB  #8, ETATS
+        
+        MOVB  #12, PIFP 
+	   	
+        RTI
+        
 ;*************************************************************************
 ;*																		 *
 ;* Liste des message utiliser dans le programme 						 *
@@ -642,7 +837,15 @@ Message2: dc.b ' secondes ',$0A,$0D,$00
 
 
 ;Code lab2d	  Fuzzy logique
-
+ ;**************************************************************
+;*             Définition des chaine de char                  *
+;**************************************************************
+str1:	DC.B	'Entrées : ',$00
+str2:	DC.B	'    Vcap_gauche = ',$00
+str3:	DC.B	'    Vcap_centre = ',$00
+str4:	DC.B	'    Vcap_droite = ',$00
+str5:	DC.B	'Sortie = ',$00
+CRLF:	DC.B	$0A,$00		
 ;**************************************************************
 ;*                    Function Membre                         *
 ;* NAME:        DC.B    Pts1, Pts2, Pent2, Pente2             *
@@ -699,7 +902,7 @@ RULESTART: DC.W     O_G_L, O_C_L, O_D_L, MARKER, O_SF_AVANT,   MARKER ;1
 ;**************************************************************
 SINGLETON: DC.B $F0, $80, $10
 
-
+ INCLUDE 'LCDhex.ASM'
  INCLUDE 'D_BUG12M.ASM'
 
  
@@ -717,10 +920,10 @@ SINGLETON: DC.B $F0, $80, $10
  ;interrupt compteur pulse IC0
  
  ORG $FFEE 
- fdb INT_COMPT ;fonction interupt 
+ fdb DECISION ;fonction interupt 
  
  ORG $FFFE
- fdb lab_2c ;Reset
+ fdb Entry ;Reset
  
  ORG $FF8E
  fdb TOGGLE_PP0
