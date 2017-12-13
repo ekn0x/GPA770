@@ -50,7 +50,14 @@ affLCD:     MACRO
              
  ORG RAMStart
  
- ; Voltage capteur			        ;Pour la fuzzy logique
+;************************************************************************
+;**
+;* VARIABLE
+;**
+;************************************************************************
+
+ 
+ ; Voltage capteur			  
 Vcapt_droit:     DS.B    1
 Vcapt_centre:    DS.B    1
 Vcapt_gauche:    DS.B    1
@@ -75,63 +82,66 @@ SF_AGAUCHE:      DS.B    1
 ; Commande
 COMMANDE:        DS.B    1
  
-;************************************************************************
-;**
-;* VARIABLE
-;**
-;************************************************************************
 
-VConstante:    ds.w 1  ; Constante de vitesse
-TTotal:        ds.w 1  ; Temps total
-TA:            ds.w 1  ; Temps partiel A
-TC:            ds.w 1  ; Temps partiel C
-DELTAV:        ds.w 1  ; Grandeur de saut de vitesse par temps
-VMD:           ds.w 30 ; Vitesse du moteur de droite
-VMG:           ds.w 30 ; Vitesse du moteur de gauche 
-COMPT:         ds.b 1  ; Compteur pour les boucles pour créer les tableaux
-COMPT2:        ds.b 2  ; Compteur pour afficher	
-COMPT3:        ds.b 1  ; Compt interruption /pulse
-COMPTBRA:      ds.B 1  ; Compt le nombre de ticks durant le braquage
-FLAG_MESSAGE:  ds.b 1  ; Affiche le message
-ADRESSE_TEMPX: ds.w 1  ; Affiche le message
-ADRESSE_TEMPY: ds.w 1  ; Affiche le message
-COMPTARR       ds.b 1  ; Compteur marche arrière
+VConstante:      DS.W 1  ; Constante de vitesse
+TTotal:          DS.W 1  ; Temps total
+TA:              DS.W 1  ; Temps partiel A
+TC:              DS.W 1  ; Temps partiel C
+DELTAV:          DS.W 1  ; Grandeur de saut de vitesse par temps
+VMD:             DS.W 30 ; Vitesse du moteur de droite
+VMG:             DS.W 30 ; Vitesse du moteur de gauche 
+COMPT:           DS.B 1  ; Compteur pour les boucles pour créer les tableaux
+COMPT2:          DS.B 2  ; Compteur pour afficher	
+COMPT3:          DS.B 1  ; Compt interruption /pulse
+COMPTBRA:        DS.B 1  ; Compt le nombre de ticks durant le braquage
+FLAG_MESSAGE:    DS.B 1  ; Affiche le message
+ADRESSE_TEMPX:   DS.W 1  ; Affiche le message
+ADRESSE_TEMPY:   DS.W 1  ; Affiche le message
+COMPTARR         DS.B 1  ; Compteur marche arrière
 
 
 ;**********************************DÉBUT VARIABLE DU PROJET***************
 
-ETATS: ds.b 1							;Sélectionne les états
-COMPT_BGA: ds.b 1					;Compte le nombre de tick pour gauche
-COMPT_BDR: ds.b 1					;Compte le nombre de tick pour droit
-COMPT_MAR: ds.b 1
-Flag_Toggle: ds.b 1        ; Flag pour le toggle du bouton
+ETATS:           DS.B 1	 ;Sélectionne les états
+COMPT_BGA:       DS.B 1	 ;Compte le nombre de tick pour gauche
+COMPT_BDR:       DS.B 1  ;Compte le nombre de tick pour droit
+COMPT_MAR:       DS.B 1
+Flag_Toggle:     DS.B 1  ; Flag pour le toggle du bouton
+
+;************************************************************************
+;**
+;* Constante
+;**
+;************************************************************************
+
+ ORG ROMStart
  
+ 
+ 
+ANGLES:          DC.B    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1 	        ;address va de #$10 à #$78
+                 DC.B    107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92  
+                 DC.B    91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76
+                 DC.B    75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60
+                 DC.B    59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44
+                 DC.B    43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28
+                 DC.B    27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12
+                 DC.B    11, 10, 9,  8,  7,  6,  5,  4,  1,  1,  1,  1,  1,  1,  1,  1
+                 DC.B    1,	1,	1,	1,	1,	1,	1,	1,	4,	5,	6,	7,	8,	9,	10,	11
+                 DC.B    12,	13,	14,	15,	16,	17,	18,	19,	20,	21,	22,	23,	24,	25,	26,	27
+                 DC.B    28,	29,	30,	31,	32,	33,	34,	35,	36,	37,	38,	39,	40,	41,	42,	43
+                 DC.B    44,	45,	46,	47,	48,	49,	50,	51,	52,	53,	54,	55,	56,	57,	58,	59
+                 DC.B    60,	61,	62,	63,	64,	65,	66,	67,	68,	69,	70,	71,	72,	73,	74,	75 
+                 DC.B    76,	77,	78,	79,	80,	81,	82,	83,	84,	85,	86,	87,	88,	89,	90,	91
+                 DC.B    92,	93,	94,	95,	96,	97,	98,	99,	100, 101, 102, 103,	104, 105, 106, 107
+                 DC.B    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1           ;address termine de #$88 à #$F0
+                
+                              
 ;*************************************************************************
 ;* *
 ;* Début du code dans la section CODE SECTION *
 ;* *
 ;*************************************************************************
 
- ORG ROMStart
- 
- 
- 
-ANGLES:         dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1 	        ;address va de #$10 à #$78
-                dc.b    107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92  
-                dc.b    91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76
-                dc.b    75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60
-                dc.b    59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44
-                dc.b    43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28
-                dc.b    27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12
-                dc.b    11, 10, 9,  8,  7,  6,  5,  4,  1,  1,  1,  1,  1,  1,  1,  1
-                dc.b    1,	1,	1,	1,	1,	1,	1,	1,	4,	5,	6,	7,	8,	9,	10,	11
-                dc.b    12,	13,	14,	15,	16,	17,	18,	19,	20,	21,	22,	23,	24,	25,	26,	27
-                dc.b    28,	29,	30,	31,	32,	33,	34,	35,	36,	37,	38,	39,	40,	41,	42,	43
-                dc.b    44,	45,	46,	47,	48,	49,	50,	51,	52,	53,	54,	55,	56,	57,	58,	59
-                dc.b    60,	61,	62,	63,	64,	65,	66,	67,	68,	69,	70,	71,	72,	73,	74,	75 
-                dc.b    76,	77,	78,	79,	80,	81,	82,	83,	84,	85,	86,	87,	88,	89,	90,	91
-                dc.b    92,	93,	94,	95,	96,	97,	98,	99,	100, 101, 102, 103,	104, 105, 106, 107
-                dc.b    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1           ;address termine de #$88 à #$F0
                 
   Entry:
   lds #$1000              
@@ -192,6 +202,15 @@ MAIN:
 ;* SECTION DES ROUTINES
 ;**
 ;************************************************************************* 
+
+;*************************************************************************
+;**
+;* ROUTINE BRAQ
+;* Cette routine permet de savoir a combien le conteur pour le braquage
+;* doit être initialisé
+;**
+;************************************************************************* 
+
 BRAQ:       
             LDAB  ANGLES
             LDX  #COMMANDE
@@ -213,6 +232,15 @@ Droite:     MOVB    #$10,ETATS
 AFF:	    RTS
 
 
+;*************************************************************************
+;**
+;* ROUTINE FINAL
+;* Cette routine permet de convertire le signal analogique des capteurs 
+;* IR en numérique
+;**
+;************************************************************************* 
+
+
 FINAL:      MOVB	#$91,ATDCTL5            	; début de conversion justifiée à droite, multiple, à partir du 
                                             	; canal 1
                                             	
@@ -221,7 +249,16 @@ Attendre:  	brclr    	ATDSTAT0,$80,Attendre   	; Attendre la fin des trois conve
            	movb     	ATDDR1L, Vcapt_centre
            	movb     	ATDDR0L, Vcapt_droit
 			RTS
-  ;***********************************************************************
+			
+;*************************************************************************
+;**
+;* ROUTINE FUZZI
+;* Cette routine permet de faire le calul de logique floue et de touver
+;* la commande de braquague
+;**
+;************************************************************************* 			
+			
+            ;***********************************************************************
             ;*								Fuzzification						   *
             ;***********************************************************************
             
@@ -281,7 +318,15 @@ CAPT_G:     MEM
             LDAB    COMMANDE
             JSR  LCD2hex
             RTS
-            
+
+
+;*************************************************************************
+;**
+;* ROUTINE initPortLD
+;* Cette routine permet d'initialiser l'écran LCD
+;**
+;*************************************************************************       
+      
 initPortLCD:
 		;BSET    DDRB, #$07      ; Set la direction du portB
 		;BSET    DDRA, #$FF      ; Set la direction du portA
@@ -306,9 +351,16 @@ Boucle1:DEX 		    ; décrémente X
 		DEY 		    ; décrémente Y
 		BNE 	Boucle2	; boucle externe
 		RTS 		    ; retour de la sous-routine
-  ;**************************************************************
-;*             Fonction d'afficheage                          *
-;**************************************************************
+		
+
+;*************************************************************************
+;**
+;* ROUTINE afficherResultats
+;* Cette routine permet d'afficher les valeurs des capteurs sur l'écran
+;* LCD
+;**
+;************************************************************************* 
+
 afficherResultats:            
             JSR initPortLCD
               
@@ -346,58 +398,6 @@ afficherResultats:
  
  RTS	
 
- ;ALEXIS LAGUEUX
- ;braq_court: 
- ;CMPA   #$00
- ;BEQ    BCG
- ;MOVW   #3150,TC3
- ;MOVW   #3150,TC2
- ;BRA    BCF
- 
- 
- ;BCG:
- ;MOVW   #2850,TC3
- ;MOVW   #2850,TC2
-    
- ;BCF:   RTS
- 
-; braq_moyen:
-; DEC    COMPTBRA
-; BEQ    BMF
-; CMPA   #$00
-; BEQ    BMG
-; MOVW   #3000,TC3
-; MOVW   #2945,TC2
-; BRA    braq_moyen
- 
-; BMG:
-; MOVW   #3055,TC3
-; MOVW   #3000,TC2
-; BRA    braq_moyen
-    
-; BMF:   RTS
-  
- ;braq_long:
- ;RTS
- 
- ;aller copier le nombre de tick du braquage dans Y , X
- 
- ;inverser les commande moteurs
- 
- ;boucler pour nombre de tick
- 
- ;fin du virage
-
-
- 
- 
- 
- ;BMG
- ;BLG
- 
- ;BCD
- ;BMD
- ;BLD
  
 ;************************************************************************
 ;**
@@ -405,6 +405,7 @@ afficherResultats:
 ;* Création du tableau de sous vitesse
 ;**
 ;************************************************************************
+
  CREE_TAB:
  MOVW #3200,TTotal ;Le temps pour faire le profil est de 15s
  MOVW #3200,VConstante ; le moteur doit allez a 3200 
@@ -434,8 +435,14 @@ afficherResultats:
  
  RTS
  
- 
- ; Functions
+
+;************************************************************************
+;**
+;* ROUTINE initPushButton
+;* Cette routine permet d'initialiser le port P pour les boutton poussoir
+;**
+;************************************************************************
+
 ; Diagramme de connection push button
 ;	5V ---- PPSP ---- 470Ohm ---- PERP ---- PORTP --+-- PushButton ---- Gnd
 initPushButton:	; initialisation du registre PTP, pour le polling du push-button
@@ -776,7 +783,7 @@ END_DEC: RTI
  
 ;*************************************************************************
 ;*																		 *
-;* ROUTINE INT_AFFICHE_TEMPS											 *
+;* ROUTINE TOGGLE_PP0											 *
 ;* Routine pour le bouton d'arrêt d'urgence;							 *
 ;*  verfifé si le bouton est pesé										 *
 ;*																		 *
@@ -787,17 +794,8 @@ TOGGLE_PP0:
 	   BRSET    PIFP,#2,INT_PARECHOC    ;A CHANGER POUR ETALONAGE
 	   BRSET    PIFP,#4,INT_PARECHOC
 	   BRSET    PIFP,#8,INT_PARECHOC
-	      
-       RTI
-       
-       
-;*************************************************************************
-;*																		 *
-;* ROUTINE INT_AFFICHE_TEMPS											 *
-;* Routine pour le bouton d'arrêt d'urgence;							 *
-;*  verfifé si le bouton est pesé										 *
-;*																		 *
-;*************************************************************************  
+	   BRA  END_PP0
+        
 MARARR:
        	
        LDAA     SCISR1	        ; lecture du SCI Status Register 1
@@ -813,7 +811,10 @@ T_out: MOVB     #01,PIFP       ; Aquitter l'interruption
 	   JSR      DELAI																   ;(ANTOINE, MICHAEL)
 	   BRSET    PIFP,#01,T_out ; Vérifie si le flag est à 1, sinon on refait l'interruption    (ANTOINE, MICHAEL)
 	      
-       BRA  TOGGLE_PP0
+       BRA  END_PP0
+       
+       
+END_PP0: RTI
  
 ;*************************************************************************
 ;*																		 *
