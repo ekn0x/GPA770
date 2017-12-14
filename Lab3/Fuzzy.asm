@@ -23,20 +23,23 @@
 ;Adresse absolue pour le d?but du programme et des constantes
 ROMStart EQU $4000
 
-MARKER          EQU  $FE    	    ;Pour la fuzzy logique
-ENDRO           EQU  $FF
-O_D_L           EQU  $00
-O_D_M           EQU  $01
-O_D_P           EQU  $02
-O_C_L           EQU  $03
-O_C_M           EQU  $04
-O_C_P           EQU  $05
-O_G_L           EQU  $06
-O_G_M           EQU  $07
-O_G_P           EQU  $08
-O_SF_ADROITE    EQU  $09
-O_SF_AVANT      EQU  $0A
-O_SF_AGAUCHE    EQU  $0B
+;Offset pour les 27 régles
+O_D_LOIN  EQU   $00      
+O_D_MIDI  EQU   $01      
+O_D_PRES  EQU   $02      
+O_C_LOIN  EQU   $03      
+O_C_MIDI  EQU   $04      
+O_C_PRES  EQU   $05      
+O_G_LOIN  EQU   $06      
+O_G_MIDI  EQU   $07      
+O_G_PRES  EQU   $08
+O_DROITE  EQU   $09
+O_AVANT   EQU   $0A
+O_GAUCHE  EQU   $0B
+
+MARKER    EQU     $FE  ;Séparateur pour les régles      
+ENDR      EQU     $FF  ;Variable de fin pour les régles      
+
 
 
 affLCD:     MACRO
@@ -57,30 +60,27 @@ affLCD:     MACRO
 ;************************************************************************
 
 
- ; Voltage capteur
-Vcapt_droit:     DS.B    1
-Vcapt_centre:    DS.B    1
-Vcapt_gauche:    DS.B    1
+;Variables d'entrées pour la fuzzification
+E_D_LOIN:       DS.B    1   
+E_D_MIDI:       DS.B    1
+E_D_PRES:       DS.B    1
+E_C_LOIN:       DS.B    1
+E_C_MIDI:       DS.B    1
+E_C_PRES:       DS.B    1
+E_G_LOIN:       DS.B    1
+E_G_MIDI:       DS.B    1
+E_G_PRES:       DS.B    1
 
-; Valeur d'appartenance
-D_L:             DS.B    1
-D_M:             DS.B    1
-D_P:             DS.B    1
-C_L:             DS.B    1
-C_M:             DS.B    1
-C_P:             DS.B    1
-G_L:             DS.B    1
-G_M:             DS.B    1
-G_P:             DS.B    1
+;Valeur après fuzzification
+SORTIE_D:	    	DS.B    1	  
+SORTIE_C: 		  DS.B    1
+SORTIE_G: 	    DS.B    1
 
-
-; Valeur des regles
-SF_ADROITE:      DS.B    1
-SF_AVANT:        DS.B    1
-SF_AGAUCHE:      DS.B    1
-
-; Commande
-COMMANDE:        DS.B    1
+VCAPT_DROIT:    DS.B    1    ;Valeurs données par le capteur droit
+VCAPT_CENTRE:   DS.B    1    ;Valeurs données par le capteur centre
+VCAPT_GAUCHE:   DS.B    1    ;Valeurs données par le capteur gauche
+COMMANDE:       DS.B    1    ;Valeur de sortie
+	
 
  ORG ROMStart
 
@@ -115,14 +115,13 @@ COMMANDE:        DS.B    1
  ;Activer interuption
   CLI
 
-  MOVB #$00,SF_ADROITE
-  MOVB #$00,SF_AVANT
-  MOVB #$00,SF_AGAUCHE
-
 MAIN:
     JSR FINAL
-    JSR afficherResultats  ;transformer pour LCD et non pas comm serie
+    ;JSR afficherResultats  ;transformer pour LCD et non pas comm serie
     JSR FUZZI
+    LDY #100
+    JSR DELAI 
+    BRA MAIN
 
 ;*************************************************************************
 ;**
@@ -143,9 +142,9 @@ FINAL:      MOVB	#$91,ATDCTL5            	; d?but de conversion justifi?e ? droi
                                             	; canal 1
 
 Attendre:  	brclr    	ATDSTAT0,$80,Attendre   	; Attendre la fin des trois conversions (SCF)
-           	movb     	ATDDR2L, Vcapt_gauche 		; sauvegarde des trois voltages des capteurs
-           	movb     	ATDDR1L, Vcapt_centre
-           	movb     	ATDDR0L, Vcapt_droit
+           	movb     	ATDDR2L, VCAPT_DROIT 		; sauvegarde des trois voltages des capteurs
+           	movb     	ATDDR1L, VCAPT_CENTRE
+           	movb     	ATDDR0L, VCAPT_GAUCHE
 			RTS
 
 
@@ -157,66 +156,48 @@ Attendre:  	brclr    	ATDSTAT0,$80,Attendre   	; Attendre la fin des trois conve
 ;**
 ;*************************************************************************
 
-            ;***********************************************************************
-            ;*								Fuzzification						   *
-            ;***********************************************************************
-
-FUZZI:      ; Preparation pour evalution des fonctions membres capteur droit
-            LDX  #D_LOIN
-            LDY  #D_L
-            LDAA Vcapt_droit
-            LDAB #$03
-            ; Evaluation des fonction membres capteur droit
-CAPT_D:     MEM
-            DBNE B,CAPT_D
-
-            ; Preparation pour evalution des fonctions membres capteur centre
-            LDX  #C_LOIN
-            LDY  #C_L
-            LDAA Vcapt_centre
-            LDAB #$03
-            ; Evaluation des fonction membres capteur droit
-CAPT_C:     MEM
-            DBNE B,CAPT_C
-
-            ; Preparation pour evalution des fonctions membres capteur gauche
-            LDX  #G_LOIN
-            LDY  #G_L
-            LDAA Vcapt_gauche
-            LDAB #$03
-            ; Evaluation des fonctions membres capteur gauche
-CAPT_G:     MEM
-            DBNE B,CAPT_G
-
-
-            ;***********************************************************************
-            ;*						Evaluation des regles						   *
-            ;***********************************************************************
-
-            ; Preparation pour evalution regles
-            LDY  #D_L
-            LDX  #RULESTART
-            LDAA #ENDRO
-            ; Evaluation des regles
-            REV
-
-            ;***********************************************************************
-            ;*				      		Calcul de sortie						   *
-            ;***********************************************************************
-
-            ; Preparation du calcul de sortie
-            LDX  #SINGLETON
-            LDY  #SF_ADROITE
-            LDAB #$03
-            ; Evaluation de la sortie
-            WAV
-            EDIV
-            TFR Y,D
-            JSR initPortLCD
-            STAB COMMANDE
-            LDAB    COMMANDE
-            JSR  LCD2hex
-            RTS
+FUZZI:  LDX     #D_LOIN	    ;Le début des entrées utilisé par la fonction MEM
+	    LDY     #E_D_LOIN   ;Le début des valeurs fuzzifiées
+	   	LDAA    VCAPT_DROIT ;Valeur du capteur droit
+	    LDAB    #3          ;Nombre d'ittération
+		
+LoopD:  MEM                 ;Assigner les valeurs au MEM
+        DBNE    B,LoopD     ;Faire les 3 ittérations
+        
+        LDAA    VCAPT_CENTRE;Valeur du capteur central
+        LDAB    #3          ;Nombre d'ittération
+LoopC:  MEM                 ;Assigner les valeurs au MEM
+        DBNE    B,LoopC     ;Faire les 3 ittérations
+        
+        LDAA    VCAPT_GAUCHE;Valeur du capteur gauche
+        LDAB    #3          ;Nombre d'ittération
+LoopG:  MEM                 ;Assigner les valeurs au MEM
+        DBNE    B,LoopG     ;Faire les 3 ittérations
+        
+        ;Remise à zéro des trois sortie pour la défuzzification
+        CLR     SORTIE_D
+        CLR		  SORTIE_C
+        CLR	  	SORTIE_G
+        
+        LDY     #E_D_LOIN
+        LDX     #RULE_START ;Départ des règles
+        
+        LDAA    #$FF
+        
+        REV                 ;Évaluer les 27 règles
+        
+;Défuzzification
+        LDX     #A_DROITE   ;Le début des sorties utilisé par la fonction MEM
+        LDY     #SORTIE_D   ;Le début des sorties défuzzifiés
+        LDAB    #$03        ;Faire la somme des 3 sorties
+        WAV
+        EDIV
+        TFR     Y,D         ;Mettre la réponse dans D
+        STAB    COMMANDE    ;Sauvegarder la réponse 
+        LDAB    COMMANDE
+        JSR     clearLCD
+        JSR     LCD2hex
+        RTS
 
 ;*************************************************************************
 ;**
@@ -250,7 +231,7 @@ initPortLCD:
 ;*************************************************************************
 
 clearLCD:
-		affLCD  $01, $04, $04   ; Clear Display
+		;affLCD  $01, $04, $04   ; Clear Display
 		affLCD  $02, $04, $04   ; Curseur Home
         rts
 
@@ -274,74 +255,64 @@ Boucle1:DEX 		    ; d?cr?mente X
 ;*************************************************************************
 
 afficherResultats:
-            JSR clearLCD
+            ;JSR clearLCD
 
-            LDAB    Vcapt_gauche  ;Mettre la valeur de 'VCAPT_GAUCHE' dans 'B'
+            LDAB    VCAPT_GAUCHE  ;Mettre la valeur de 'VCAPT_GAUCHE' dans 'B'
             JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
             AFFLCD  ':',2,$05
-            LDAB    Vcapt_centre  ;Mettre la valeur de 'VCAPT_CENTRE' dans 'B'
+            LDAB    VCAPT_CENTRE  ;Mettre la valeur de 'VCAPT_CENTRE' dans 'B'
             JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
             AFFLCD  ':',2,$05
-            LDAB    Vcapt_droit   ;Mettre la valeur de 'VCAPT_DROIT' dans 'B'
+            LDAB    VCAPT_DROIT   ;Mettre la valeur de 'VCAPT_DROIT' dans 'B'
             JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
 
             rts
 
-;**************************************************************
-;*                    Function Membre                         *
-;* NAME:        DC.B    Pts1, Pts2, Pent2, Pente2             *
-;**************************************************************
-; Right
-D_LOIN:       DC.B    $00, $30, $00, $10
-D_MIDI:       DC.B    $20, $60, $10, $10
-D_PRES:       DC.B    $50, $FF, $10, $00
-; Center
-C_LOIN:       DC.B    $00, $30, $00, $10
-C_MIDI:       DC.B    $20, $60, $10, $10
-C_PRES:       DC.B    $50, $FF, $10, $00
-; Left
-G_LOIN:       DC.B    $00, $30, $00, $10
-G_MIDI:       DC.B    $20, $60, $10, $10
-G_PRES:       DC.B    $50, $FF, $10, $00
+; Fonctions d'apartenance pour la fuzzification     
+D_LOIN:         dc.b    $00,$30,$00,$10	   
+D_MIDI:         dc.b    $20,$60,$10,$10
+D_PRES:         dc.b    $50,$FF,$10,$00
+C_LOIN:         dc.b    $00,$30,$00,$10
+C_MIDI:         dc.b    $20,$60,$10,$10
+C_PRES:         dc.b    $50,$FF,$10,$00
+G_LOIN:         dc.b    $00,$30,$00,$10
+G_MIDI:         dc.b    $20,$60,$10,$10
+G_PRES:         dc.b    $50,$FF,$10,$00
 
-;**************************************************************
-;*                          Rules                             *
-;* NAME:        DC.B                                          *
-;**************************************************************
-RULESTART: DC.W     O_G_L, O_C_L, O_D_L, MARKER, O_SF_AVANT,   MARKER ;1
-           DC.W     O_G_L, O_C_L, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;2
-           DC.W     O_G_L, O_C_L, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;3
-           DC.W     O_G_L, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;4
-           DC.W     O_G_L, O_C_M, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;5
-           DC.W     O_G_L, O_C_M, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;6
-           DC.W     O_G_L, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;7
-           DC.W     O_G_L, O_C_P, O_D_M, MARKER, O_SF_AGAUCHE, MARKER ;8
-           DC.W     O_G_L, O_C_P, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;9
-           DC.W     O_G_M, O_C_L, O_D_L, MARKER, O_SF_ADROITE, MARKER ;10
-           DC.W     O_G_M, O_C_L, O_D_M, MARKER, O_SF_ADROITE, MARKER ;11
-           DC.W     O_G_M, O_C_L, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;12
-           DC.W     O_G_M, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;13
-           DC.W     O_G_M, O_C_M, O_D_M, MARKER, O_SF_ADROITE, MARKER ;14
-           DC.W     O_G_M, O_C_M, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;15
-           DC.W     O_G_M, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;16
-           DC.W     O_G_M, O_C_P, O_D_M, MARKER, O_SF_ADROITE, MARKER ;17
-           DC.W     O_G_M, O_C_P, O_D_P, MARKER, O_SF_AGAUCHE, MARKER ;18
-           DC.W     O_G_P, O_C_L, O_D_L, MARKER, O_SF_ADROITE, MARKER ;19
-           DC.W     O_G_P, O_C_L, O_D_M, MARKER, O_SF_ADROITE, MARKER ;20
-           DC.W     O_G_P, O_C_L, O_D_P, MARKER, O_SF_ADROITE, MARKER ;21
-           DC.W     O_G_P, O_C_M, O_D_L, MARKER, O_SF_ADROITE, MARKER ;22
-           DC.W     O_G_P, O_C_M, O_D_M, MARKER, O_SF_ADROITE, MARKER ;23
-           DC.W     O_G_P, O_C_M, O_D_P, MARKER, O_SF_ADROITE, MARKER ;24
-           DC.W     O_G_P, O_C_P, O_D_L, MARKER, O_SF_ADROITE, MARKER ;25
-           DC.W     O_G_P, O_C_P, O_D_M, MARKER, O_SF_ADROITE, MARKER ;26
-           DC.W     O_G_P, O_C_P, O_D_P, MARKER, O_SF_ADROITE, ENDRO  ;27
+;Valeur des trois singletons pour la défuzzification
+A_DROITE:       dc.b    $F0
+DEVANT:         dc.b    $80
+A_GAUCHE:       dc.b    $10
 
+;Définition des 27 règles 
+RULE_START:     dc.b    O_G_LOIN, O_C_LOIN, O_D_LOIN, MARKER, O_AVANT,  MARKER      
+                dc.b    O_G_LOIN, O_C_LOIN, O_D_MIDI, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_LOIN, O_C_LOIN, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_LOIN, O_C_MIDI, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_LOIN, O_C_MIDI, O_D_MIDI, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_LOIN, O_C_MIDI, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_LOIN, O_C_PRES, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_LOIN, O_C_PRES, O_D_MIDI, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_LOIN, O_C_PRES, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_MIDI, O_C_LOIN, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_LOIN, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_LOIN, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_MIDI, O_C_MIDI, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_MIDI, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_MIDI, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_MIDI, O_C_PRES, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_PRES, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_MIDI, O_C_PRES, O_D_PRES, MARKER, O_GAUCHE, MARKER
+                dc.b    O_G_PRES, O_C_LOIN, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_LOIN, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_LOIN, O_D_PRES, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_MIDI, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_MIDI, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_MIDI, O_D_PRES, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_PRES, O_D_LOIN, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_PRES, O_D_MIDI, MARKER, O_DROITE, MARKER
+                dc.b    O_G_PRES, O_C_PRES, O_D_PRES, MARKER, O_DROITE, ENDR
 
-;**************************************************************
-;*                       Singleton                            *
-;* NAME:        DC.B    Liste de valeur                       *
-;**************************************************************
-SINGLETON: DC.B $F0, $80, $10
 
  INCLUDE 'LCDhex.ASM'
  INCLUDE 'D_BUG12M.ASM'
