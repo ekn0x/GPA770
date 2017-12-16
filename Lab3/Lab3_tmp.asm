@@ -1,3 +1,4 @@
+
 ;*************************************************************************
 ;* *
 ;* Auteurs : Samuel Fortin
@@ -49,6 +50,8 @@ affLCD:     MACRO
 			JSR     DELAI
 			BSET    PORTB, $04
             ENDM 
+            
+ 
              
  ORG RAMStart
  
@@ -96,8 +99,12 @@ FLAG_MESSAGE:    DS.B 1  ; Affiche le message
 ADRESSE_TEMPX:   DS.W 1  ; Affiche le message
 ADRESSE_TEMPY:   DS.W 1  ; Affiche le message
 COMPTARR         DS.W 1  ; Compteur marche arrière
-
-
+VITD:            DS.W 1  
+VITG:            DS.W 1
+INCVITD:         DS.W 1
+INCVITG:         DS.W 1
+CMPT_VIT		 DS.B 1
+CMPT_ACC		 DS.B 1
 ;**********************************DÉBUT VARIABLE DU PROJET***************
 
 ETATS:           DS.B 1	 ;Sélectionne les états
@@ -168,6 +175,12 @@ ANGLES:          DC.B    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 
 ;*************************************************************************
 ;INIT: ARR =1
 
+ MOVB #0,CMPT_VIT
+ MOVB #0,CMPT_ACC
+ MOVW #3000,VITG
+ MOVW #3000,VITD
+ JSR  CALVITD		  
+ JSR  CALVITG
  MOVB #$02,ETATS	   
  JSR INIT_PULSE
  JSR initPushButton
@@ -182,10 +195,11 @@ MAIN:
     CMPA #$02
     BEQ MAIN    
     JSR FINAL
+    JSR clearLCD
     JSR afficherResultats  ;transformer pour LCD et non pas comm serie    
     JSR FUZZI
     JSR BRAQ
-    LDY #200
+    LDY #125
     JSR DELAI 
     BRA MAIN
     
@@ -212,10 +226,19 @@ BRAQ:
             ABX
 			MOVW  X,COMPTBRA
 
+			LDAA ETATS
+            CMPA #$01
+            BEQ AFF
+			LDAA ETATS
+            CMPA #$40
+            BEQ AFF
+			LDAA ETATS
+            CMPA #$08
+            BEQ AFF
             LDAA COMMANDE
-            CMPA #$88
+            CMPA #$A8
             BHI Droite
-            CMPA #$78
+            CMPA #$58
             BLO Gauche
             MOVB #$04, ETATS
             BRA AFF
@@ -292,8 +315,8 @@ LoopG:  MEM                 ;Assigner les valeurs au MEM
         TFR     Y,D         ;Mettre la réponse dans D
         STAB    COMMANDE    ;Sauvegarder la réponse 
         LDAB    COMMANDE
-        JSR     clearLCD
-        JSR     LCD2hex
+        ;JSR     clearLCD
+        ;JSR     LCD2hex
         RTS
 
 ;*************************************************************************
@@ -353,13 +376,13 @@ afficherResultats:
             JSR initPortLCD
               
             LDAB    VCAPT_GAUCHE  ;Mettre la valeur de 'VCAPT_GAUCHE' dans 'B'
-           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
-           ; AFFLCD  ':',2,$05
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            AFFLCD  ':',2,$05
             LDAB    VCAPT_CENTRE  ;Mettre la valeur de 'VCAPT_CENTRE' dans 'B'
-           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
-           ; AFFLCD  ':',2,$05
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            AFFLCD  ':',2,$05
             LDAB    VCAPT_DROIT   ;Mettre la valeur de 'VCAPT_DROIT' dans 'B'
-           ; JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
+            JSR     LCD2hex       ;Appel de la routine 'LCD2hex' pour affiche 'B'
             
             rts
 ;*************************************************************************
@@ -589,8 +612,41 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
  RTS	
  
  
+ AFFVIT:LDD VITD
+        JSR clearLCD
+        TAB
+        JSR LCD2hex 
+        LDD VITD
+        JSR LCD2hex
+        RTS
 
-  
+UPCOMPT:LDD  VITD
+        ADDD  #5
+        CPD  #3000
+        BHS   MAX
+       
+        
+        STD  VITD
+        BRA   ENDUP
+        MAX:    LDD  #3000
+                STD  VITD
+ENDUP  RTS 
+
+CALVITD:  LDD  VITD
+          LDX  #10
+          SUBD #2800
+          IDIV  
+ 		  STX  INCVITD
+ 		  RTS
+ 		  
+CALVITG:  LDD  VITG
+          LDX  #10
+          SUBD #2800
+          IDIV  
+ 		  STX  INCVITG
+ 		  RTS  
+ 		  
+ 		  
 ;*************************************************************************
 ;**
 ;*ROUTINE D'INTERRUPTION
@@ -628,22 +684,30 @@ DECISION:
     BEQ  ETAL
     
 ACC:
-    ;LAB2C
-    BRA FOW
+    LDAB  CMPT_VIT
+    CMPA  #10
+    BEQ   FOW
+    LDAA  CMPT_ACC    ;Mettre le contenu de 'CMPT_VIT' dans 'A'
+    CMPA  #25         ;Comparer la valeur de 'A' avec '25' (0.5 sec)
+    BHS   VITESSE     ;Si 'A' est plus grand que '25', aller à 'VITESSE'
+    INC   CMPT_ACC
+    LBRA END_DEC
 
 ARR:
     MOVW #3000,TC2
     MOVW #3000,TC3   
-    BRA END_DEC
+    LBRA END_DEC
     
 MAV:
-    MOVW #3040,TC3
-    MOVW #2950,TC2 
+    MOVW VITG,TC3
+    MOVW VITD,TC2 
     BRA END_DEC
 
 MAR:
     MOVW #2950,TC3
     MOVW #3050,TC2
+    JSR clearLCD
+ 
     DEC COMPTARR
     BEQ BRAC
     BRA END_DEC
@@ -672,6 +736,18 @@ ETAL:
      
 FOW: MOVB #$04,ETATS
      BRA END_DEC
+
+VITESSE:  LDD   VITD
+          SUBD  INCVITD
+          STD   VITD
+          LDD   VITG
+          ADDD  INCVITG
+          STD   VITG
+          MOVB  #0,CMPT_ACC
+          MOVW VITG,TC3
+          MOVW VITD,TC2
+          INC   CMPT_VIT
+          BRA   END_DEC
 
 BRAC: MOVB #$20,ETATS
 
@@ -779,9 +855,9 @@ END_DEC: RTI
 TOGGLE_PP0:	
 	  
 	   BRSET    PIFP,#1,MARARR
-	   BRSET    PIFP,#2,INT_PARECHOC    ;A CHANGER POUR ETALONAGE
 	   BRSET    PIFP,#4,INT_PARECHOC
 	   BRSET    PIFP,#8,INT_PARECHOC
+	   BRSET    PIFP,#2,ETALONAGE    ;A CHANGER POUR ETALONAGE
 	   BRA  END_PP0
         
 MARARR:
@@ -793,7 +869,7 @@ MARARR:
        BEQ      CARR
    	   MOVB     #$02,ETATS
        BRA      T_out
-CARR:  MOVB     #$04,ETATS
+CARR:  MOVB     #$01,ETATS
 T_out: MOVB     #01,PIFP       ; Aquitter l'interruption
 	   LDY      #50				; On fais un delai d'une demi-seconde		   (ANTOINE, MICHAEL)
 	   JSR      DELAI																   ;(ANTOINE, MICHAEL)
@@ -812,14 +888,67 @@ END_PP0: RTI
 ;*																		 *
 ;*************************************************************************   
  INT_PARECHOC:
+        LDAA  ETATS
+ 		CMPA  #$40
+ 		BEQ   FLAG
         
-        MOVW  #1000, COMPTARR        
+        LDAA  ETATS
+ 		CMPA  #$02
+ 		BEQ   FINPPP
+        
+        MOVB  #50, COMPTARR        
         MOVB  #8, ETATS
         
-        MOVB  #14, PIFP 
-	   	
-        RTI
+        BRA   FINPPP 
+         
+FLAG:   BRSET    PIFP,#4,UP
+
+		LDD  VITD
+		SUBD  #5
+		CPD  #2800
+		BLS   MIN
+		
+		STD  VITD
+		BRA   FINPAR
+		
+UP:     JSR UPCOMPT
+
+        BRA FINPAR
         
+MIN:    LDD  #2800
+        STD  VITD
+        BRA  FINPAR
+                
+
+                
+FINPAR: ;JSR AFFVIT
+        LDY #100
+        JSR DELAI 
+FINPPP: MOVB #14, PIFP
+ 			   	
+        RTI
+;*************************************************************************
+;*																		 *
+;* ROUTINE INT_AFFICHE_TEMPS											 *
+;* Routine pour le bouton d'arrêt d'urgence;							 *
+;*  verfifé si le bouton est pesé										 *
+;*																		 *
+;*************************************************************************  
+ ETALONAGE:
+ 		  LDAA  ETATS
+ 		  CMPA  #$40
+ 		  BEQ   ARRETL
+ 		  
+ 		  MOVB  #$40, ETATS
+ 		  BRA   FF
+ 		  
+ ARRETL:  MOVB  #$02, ETATS
+          
+ 
+ FF:	  JSR  CALVITD		  
+          JSR  CALVITG   
+          MOVB  #2, PIFP
+          RTI
 ;*************************************************************************
 ;*																		 *
 ;* Liste des message utiliser dans le programme 						 *
