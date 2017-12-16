@@ -924,7 +924,10 @@ MIN:    LDD  #2800
 FINPAR: ;JSR AFFVIT
         LDY #100
         JSR DELAI 
-FINPPP: MOVB #14, PIFP
+FINPPP: 
+		JSR  CALVITD		  
+        JSR  CALVITG 
+        MOVB #14, PIFP
  			   	
         RTI
 ;*************************************************************************
@@ -945,8 +948,7 @@ FINPPP: MOVB #14, PIFP
  ARRETL:  MOVB  #$02, ETATS
           
  
- FF:	  JSR  CALVITD		  
-          JSR  CALVITG   
+ FF:	    
           MOVB  #2, PIFP
           RTI
 ;*************************************************************************
