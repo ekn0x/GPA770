@@ -103,8 +103,10 @@ VITD:            DS.W 1
 VITG:            DS.W 1
 INCVITD:         DS.W 1
 INCVITG:         DS.W 1
-CMPT_VIT		 DS.B 1
-CMPT_ACC		 DS.B 1
+CMPT_VIT:		 DS.B 1
+CMPT_ACC:		 DS.B 1
+VITDESD:         DS.W    1
+VITDESG:         DS.W    1
 ;**********************************DÉBUT VARIABLE DU PROJET***************
 
 ETATS:           DS.B 1	 ;Sélectionne les états
@@ -174,11 +176,13 @@ ANGLES:          DC.B    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 
         movb    	#$81,ATDCTL4            	; 8 bits, 2 clocks S/H, 2MHz    
 ;*************************************************************************
 ;INIT: ARR =1
-
+ 
+ MOVW   #2900, VITDESD
+ MOVW   #3100, VITDESG
  MOVB #0,CMPT_VIT
  MOVB #0,CMPT_ACC
  MOVW #3000,VITG
- MOVW #3000,VITD
+ MOVW #3010,VITD
  JSR  CALVITD		  
  JSR  CALVITG
  MOVB #$02,ETATS	   
@@ -191,6 +195,7 @@ ANGLES:          DC.B    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 
 
 
 MAIN:
+    
     LDAA ETATS
     CMPA #$02
     BEQ MAIN    
@@ -226,6 +231,9 @@ BRAQ:
             ABX
 			MOVW  X,COMPTBRA
 
+			LDAA ETATS
+            CMPA #$02
+            BEQ AFF
 			LDAA ETATS
             CMPA #$01
             BEQ AFF
@@ -351,7 +359,7 @@ initPortLCD:
 ;*************************************************************************
 
 clearLCD:
-		;affLCD  $01, $04, $04   ; Clear Display
+		affLCD  $01, $04, $04   ; Clear Display
 		affLCD  $02, $04, $04   ; Curseur Home
         rts
         
@@ -620,31 +628,34 @@ initPushButton:	; initialisation du registre PTP, pour le polling du push-button
         JSR LCD2hex
         RTS
 
-UPCOMPT:LDD  VITD
-        ADDD  #5
-        CPD  #3000
-        BHS   MAX
-       
+UPCOMPT:  LDD   VITDESD
+          ADDD  #10
+          CPD   #3000
+          BHS   MAX       
         
-        STD  VITD
-        BRA   ENDUP
-        MAX:    LDD  #3000
-                STD  VITD
-ENDUP  RTS 
+          STD   VITDESD
+          BRA   ENDUP
+        
+MAX:      LDD   #3000
+          STD   VITDESD        
+        
+ENDUP:    RTS 
 
-CALVITD:  LDD  VITD
-          LDX  #10
-          SUBD #2800
+
+
+CALVITD:  LDD  #3000
+          LDX  #20
+          SUBD VITDESD    ;AAA
           IDIV  
  		  STX  INCVITD
  		  RTS
  		  
-CALVITG:  LDD  VITG
-          LDX  #10
-          SUBD #2800
-          IDIV  
- 		  STX  INCVITG
- 		  RTS  
+CALVITG:  LDD  VITDESG         
+          LDX  #20          
+          SUBD #3000    ;AAA    
+          IDIV              
+ 		  STX  INCVITG     
+ 		  RTS
  		  
  		  
 ;*************************************************************************
@@ -684,11 +695,11 @@ DECISION:
     BEQ  ETAL
     
 ACC:
-    LDAB  CMPT_VIT
-    CMPA  #10
+    LDAA  CMPT_VIT
+    CMPA  #20
     BEQ   FOW
     LDAA  CMPT_ACC    ;Mettre le contenu de 'CMPT_VIT' dans 'A'
-    CMPA  #25         ;Comparer la valeur de 'A' avec '25' (0.5 sec)
+    CMPA  #10         ;Comparer la valeur de 'A' avec '25' (0.5 sec)
     BHS   VITESSE     ;Si 'A' est plus grand que '25', aller à 'VITESSE'
     INC   CMPT_ACC
     LBRA END_DEC
@@ -704,8 +715,8 @@ MAV:
     BRA END_DEC
 
 MAR:
-    MOVW #2950,TC3
-    MOVW #3050,TC2
+    MOVW #2900,TC3
+    MOVW #3100,TC2
     JSR clearLCD
  
     DEC COMPTARR
@@ -734,7 +745,8 @@ ETAL:
      ;A FAIRE
      BRA END_DEC
      
-FOW: MOVB #$04,ETATS
+FOW: MOVB  #0,CMPT_VIT
+     MOVB #$04,ETATS
      BRA END_DEC
 
 VITESSE:  LDD   VITD
@@ -763,56 +775,7 @@ END_DEC: RTI
 ;**
 ;*************************************************************************
 
- INT_COMPT:
  
-;Acquittement de l'interruption 
-
- MOVB #$01,TFLG1 
- 
-;Incrémentation du compteur d'interruptions (COMPT3)
-
- INC COMPT3
- 
-;Début adressage et changement de valeur
- LDD 		ADRESSE_TEMPY
- SUBD #60
- CPD #VMD
- BHS suite
-
-;A 0,5s ou a 1s, ajuster la vitesse
-;Remise a zéro du compteur après 1S dans une autre interruption
- 
- LDAB COMPT3
- CMPB #25 ;0.5S
- BEQ Tableau_Vitesse
- CMPB #50 ;1S
- BEQ Tableau_Vitesse
-
- BRA suite
-
-; Ajustement de la vitesse
- 
- Tableau_Vitesse:
- 
-;Remettre les valeurs des adresses de moteurs dans X et Y
- 
- LDX ADRESSE_TEMPX
- LDY ADRESSE_TEMPY
-
-;Incrémenter les adresse pour la nouvelles vitesse
- 
- MOVW 2,x+,TC2
- MOVW 2,y+,TC3
-
-
-;Mémoriser la nouvelle adresse dans X et Y
- 
- STX ADRESSE_TEMPX
- STY ADRESSE_TEMPY 
- 
- suite: 
- 
- RTI 
  
 ;*************************************************************************
 ;**
@@ -870,7 +833,10 @@ MARARR:
    	   MOVB     #$02,ETATS
        BRA      T_out
 CARR:  MOVB     #$01,ETATS
-T_out: MOVB     #01,PIFP       ; Aquitter l'interruption
+T_out: 
+       MOVW     #3000,VITD
+       MOVW     #3000,VITG
+       MOVB     #01,PIFP       ; Aquitter l'interruption
 	   LDY      #50				; On fais un delai d'une demi-seconde		   (ANTOINE, MICHAEL)
 	   JSR      DELAI																   ;(ANTOINE, MICHAEL)
 	   BRSET    PIFP,#01,T_out ; Vérifie si le flag est à 1, sinon on refait l'interruption    (ANTOINE, MICHAEL)
@@ -889,44 +855,42 @@ END_PP0: RTI
 ;*************************************************************************   
  INT_PARECHOC:
         LDAA  ETATS
- 		CMPA  #$40
- 		BEQ   FLAG
+ 		    CMPA  #$40
+ 		    BEQ   FLAG
         
         LDAA  ETATS
- 		CMPA  #$02
- 		BEQ   FINPPP
+ 		    CMPA  #$02
+ 		    BEQ   FINPAR
         
         MOVB  #50, COMPTARR        
         MOVB  #8, ETATS
         
-        BRA   FINPPP 
+        BRA   FINPAR 
          
 FLAG:   BRSET    PIFP,#4,UP
 
-		LDD  VITD
-		SUBD  #5
-		CPD  #2800
-		BLS   MIN
+		    LDD   VITDESD      
+		    SUBD  #10
+		    CPD   #2800
+		    BLS   MIN
 		
-		STD  VITD
-		BRA   FINPAR
+		    STD   VITDESD
+		    BRA   FINPAR
 		
-UP:     JSR UPCOMPT
+UP:     JSR   UPCOMPT
 
-        BRA FINPAR
+        BRA   FINPAR
         
-MIN:    LDD  #2800
-        STD  VITD
-        BRA  FINPAR
+MIN:    LDD   #2800
+        STD   VITDESD
+        BRA   FINPAR
                 
 
                 
-FINPAR: ;JSR AFFVIT
-        LDY #100
-        JSR DELAI 
-FINPPP: 
-		JSR  CALVITD		  
-        JSR  CALVITG 
+
+FINPAR: 
+		    JSR  CALVITD		  
+        ;JSR  CALVITG          AAA
         MOVB #14, PIFP
  			   	
         RTI
